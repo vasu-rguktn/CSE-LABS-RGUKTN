@@ -26,6 +26,7 @@ const App: React.FC = () => {
         await supabase.auth.signOut();
         setUser(null);
         setLoading(false);
+        window.location.href = "/";
         return;
       }
 
@@ -51,6 +52,7 @@ const App: React.FC = () => {
         await supabase.auth.signOut();
         setUser(null);
         setFacultySubject(null);
+        window.location.href = "/";
         return;
       }
 

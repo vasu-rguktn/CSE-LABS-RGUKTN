@@ -13,11 +13,35 @@ export interface PortalUser {
   photoURL: string | null;
 }
 
-const ALLOWED_DOMAIN = "rguktn.ac.in";
+const DEMO_FACULTY_EMAILS = [
+  "krishnasingh@rguktn.ac.in",
+  "devi.duvvuri@rguktn.ac.in",
+  "uday@rguktn.ac.in",
+  "schiranjeevi@rguktn.ac.in",
+  "rayalaupendar@rguktn.ac.in",
+  "kumaranurupam@rguktn.ac.in",
+  "bhanucse@rguktn.ac.in",
+  "dsrilakshmi@rguktn.ac.in",
+  "nswathi@rguktn.ac.in",
+  "padmabai@rguktn.ac.in",
+  "sravan.kalapala@rguktn.ac.in",
+  "sampathsarnala@rguktn.ac.in",
+  "k.lakshmikanth@rguktn.ac.in",
+  "jayakrishna0005@rguktn.ac.in",
+  "krishnapriyavaliveti@rguktn.ac.in",
+  "rama572krishna@rguktn.ac.in",
+  "mjblessy.m@rguktn.ac.in",
+  "mlr.rao1237@rguktn.ac.in",
+  "vasuch9959@rguktn.ac.in",
+  "manupatijyothi418@rguktn.ac.in",
+  "prathap.motakatla@rguktn.ac.in",
+  "kalavathiyarrapati111@rguktn.ac.in"
+];
 
 export const isAllowedEmail = (email: string | null): boolean => {
   if (!email) return false;
-  return email.endsWith(`@${ALLOWED_DOMAIN}`);
+  // DEMO ONLY: restrict strictly to whitelisted faculty emails
+  return DEMO_FACULTY_EMAILS.includes(email);
 };
 
 /**
