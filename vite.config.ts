@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 // IMPORTANT: Update 'base' to match your GitHub repository name
 export default defineConfig({
   plugins: [react()],
-  base: "/cse-labs-rguktn/",
+  base: "/CSE-LABS-RGUKTN/",
   build: {
     outDir: "dist",
     sourcemap: false,
