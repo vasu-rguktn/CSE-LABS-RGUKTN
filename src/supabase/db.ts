@@ -55,11 +55,16 @@ export const getFacultySubject = async (
   };
 };
 
+import { subjects } from "../data/subjects";
+
 export const saveFacultySubject = async (
   uid: string,
   email: string,
   subjectId: string
 ): Promise<void> => {
+  const isValid = subjects.some(s => s.id === subjectId);
+  if (!isValid) throw new Error(`Invalid subject ID: ${subjectId}`);
+
   const { error } = await supabase
     .from("faculty_subjects")
     .insert({ uid, email, subject_id: subjectId });
@@ -98,6 +103,9 @@ export const saveLabManual = async (
   uploadedBy: string,
   currentVersion: number
 ): Promise<void> => {
+  const isValid = subjects.some(s => s.id === subjectId);
+  if (!isValid) throw new Error(`Invalid subject ID: ${subjectId}`);
+
   const { error } = await supabase
     .from("lab_manuals")
     .upsert(
