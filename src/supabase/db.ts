@@ -45,6 +45,24 @@ export const getFacultySubject = async (
     .maybeSingle();
 
   if (error) throw error;
+
+  // DEMO ONLY: temporary faculty override for vasuch9959@rguktn.ac.in
+  if (!data) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const user = sessionData?.session?.user;
+    
+    if (user?.email === "vasuch9959@rguktn.ac.in") {
+      // Auto-assign "cse-101" to this demo user so they bypass subject selection
+      await saveFacultySubject(uid, user.email, "cse-101");
+      return {
+        uid,
+        email: user.email,
+        subjectId: "cse-101",
+        assignedAt: new SupabaseTimestamp(new Date().toISOString()),
+      };
+    }
+  }
+
   if (!data) return null;
 
   return {
