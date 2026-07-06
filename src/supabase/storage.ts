@@ -16,7 +16,7 @@ const BUCKET = "lab-manuals";
  * works without any changes.
  */
 export const uploadLabManual = (
-  subjectId: string,
+  storagePath: string,
   file: File,
   onProgress: (progress: number) => void
 ): Promise<{ fileUrl: string; fileName: string }> => {
@@ -32,7 +32,7 @@ export const uploadLabManual = (
 
     onProgress(0);
 
-    const path = `${subjectId}/manual.pdf`;
+    const path = storagePath;
 
     try {
       onProgress(30);
@@ -64,19 +64,12 @@ export const uploadLabManual = (
   });
 };
 
-export const getLabManualUrl = async (
-  subjectId: string
-): Promise<string | null> => {
-  const { data } = supabase.storage
+export const deleteLabManualFile = async (storagePath: string): Promise<void> => {
+  const { error } = await supabase.storage
     .from(BUCKET)
-    .getPublicUrl(`${subjectId}/manual.pdf`);
+    .remove([storagePath]);
 
-  // The public URL is always generated even if the file doesn't exist.
-  // Do a HEAD check to confirm the file is actually there.
-  try {
-    const res = await fetch(data.publicUrl, { method: "HEAD" });
-    return res.ok ? data.publicUrl : null;
-  } catch {
-    return null;
-  }
+  if (error) throw error;
 };
+
+

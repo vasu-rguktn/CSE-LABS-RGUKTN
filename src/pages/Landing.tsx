@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { subjects } from "../data/subjects";
-import { getLabManual } from "../supabase/db";
+import { getLabManuals } from "../supabase/db";
 import SearchBar from "../components/SearchBar";
 import SubjectDropdown from "../components/SubjectDropdown";
 import SubjectCard from "../components/SubjectCard";
@@ -13,11 +13,11 @@ const Landing: React.FC = () => {
   useEffect(() => {
     const fetchManuals = async () => {
       const results = await Promise.allSettled(
-        subjects.map((s) => getLabManual(s.id))
+        subjects.map((s) => getLabManuals(s.id))
       );
       const available = new Set<string>();
       results.forEach((result, idx) => {
-        if (result.status === "fulfilled" && result.value !== null) {
+        if (result.status === "fulfilled" && result.value.length > 0) {
           available.add(subjects[idx].id);
         }
       });

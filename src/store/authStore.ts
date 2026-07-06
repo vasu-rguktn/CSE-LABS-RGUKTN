@@ -5,19 +5,19 @@ import type { FacultySubject } from "../supabase/db";
 interface AuthState {
   user: PortalUser | null;
   loading: boolean;
-  facultySubject: FacultySubject | null;
+  facultySubjects: FacultySubject[];
   setUser: (user: PortalUser | null) => void;
   setLoading: (loading: boolean) => void;
-  setFacultySubject: (fs: FacultySubject | null) => void;
+  setFacultySubjects: (subjects: FacultySubject[]) => void;
   reset: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
-  facultySubject: null,
+  facultySubjects: [],
   setUser: (user) => set({ user }),
   setLoading: (loading) => set({ loading }),
-  setFacultySubject: (facultySubject) => set({ facultySubject }),
-  reset: () => set({ user: null, loading: false, facultySubject: null }),
+  setFacultySubjects: (facultySubjects) => set({ facultySubjects }),
+  reset: () => set({ user: null, loading: false, facultySubjects: [] }),
 }));

@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { signInWithGoogle } from "../supabase/auth";
-import { getFacultySubject } from "../supabase/db";
+import { getFacultySubjects } from "../supabase/db";
 import { useAuthStore } from "../store/authStore";
 import toast from "react-hot-toast";
 import { GraduationCap, LogIn, Shield, Loader2 } from "lucide-react";
 
 const FacultyLogin: React.FC = () => {
-  const { user, setUser, setFacultySubject } = useAuthStore();
+  const { user, setUser, setFacultySubjects } = useAuthStore();
   const [signingIn, setSigningIn] = useState(false);
   const navigate = useNavigate();
 
@@ -29,9 +29,9 @@ const FacultyLogin: React.FC = () => {
     setUser(signedInUser);
 
     try {
-      const fs = await getFacultySubject(signedInUser.uid);
-      setFacultySubject(fs);
-      if (fs) {
+      const fs = await getFacultySubjects(signedInUser.uid);
+      setFacultySubjects(fs);
+      if (fs.length > 0) {
         navigate("/faculty/dashboard", { replace: true });
       } else {
         navigate("/faculty/select-subject", { replace: true });

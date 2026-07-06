@@ -21,7 +21,7 @@ const fuse = new Fuse(subjects, {
 });
 
 const FacultySelectSubject: React.FC = () => {
-  const { user, setFacultySubject } = useAuthStore();
+  const { user, facultySubjects, setFacultySubjects } = useAuthStore();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
@@ -43,6 +43,13 @@ const FacultySelectSubject: React.FC = () => {
 
   const handleConfirm = async () => {
     if (!selectedSubject || !user) return;
+    
+    // Prevent adding the same subject twice
+    if (facultySubjects.some((fs) => fs.subjectId === selectedSubject.id)) {
+      toast.error(`You are already assigned to ${selectedSubject.shortName}.`);
+      return;
+    }
+
     setSaving(true);
     try {
       await saveFacultySubject(user.uid, user.email!, selectedSubject.id);
@@ -52,9 +59,9 @@ const FacultySelectSubject: React.FC = () => {
         subjectId: selectedSubject.id,
         assignedAt: null,
       };
-      setFacultySubject(fs);
-      toast.success(`Subject locked in: ${selectedSubject.shortName}`);
-      navigate("/faculty/dashboard", { replace: true });
+      setFacultySubjects([...facultySubjects, fs]);
+      toast.success(`Subject assigned: ${selectedSubject.shortName}`);
+      navigate("/faculty/dashboard"); // no replace, so they can go back
     } catch {
       toast.error("Failed to save subject. Please try again.");
     } finally {
@@ -72,11 +79,10 @@ const FacultySelectSubject: React.FC = () => {
               <BookOpen className="w-7 h-7 text-blue-700" />
             </div>
             <h1 className="text-2xl font-extrabold text-slate-900">
-              Select Your Subject
+              Assign a Subject
             </h1>
             <p className="text-slate-500 text-sm mt-2 max-w-sm mx-auto">
-              Choose the lab subject you teach. This selection is{" "}
-              <strong>permanent</strong> — contact admin to change it.
+              Choose a lab subject you teach. You can assign yourself to multiple subjects.
             </p>
           </div>
 

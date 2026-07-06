@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import { GraduationCap, LogOut, User, Menu, X } from "lucide-react";
 
 const Navbar: React.FC = () => {
-  const { user, facultySubject } = useAuthStore();
+  const { user, facultySubjects } = useAuthStore();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -59,7 +59,7 @@ const Navbar: React.FC = () => {
                   {user.displayName ?? user.email}
                 </span>
               </div>
-              {facultySubject && (
+              {facultySubjects.length > 0 && (
                 <Link
                   to="/faculty/dashboard"
                   className="text-sm font-medium text-blue-700 hover:text-blue-800 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
@@ -107,7 +107,7 @@ const Navbar: React.FC = () => {
                 <User className="w-4 h-4 text-blue-600" />
                 <span className="font-medium truncate">{user.email}</span>
               </div>
-              {facultySubject && (
+              {facultySubjects.length > 0 && (
                 <Link
                   to="/faculty/dashboard"
                   onClick={() => setMobileMenuOpen(false)}

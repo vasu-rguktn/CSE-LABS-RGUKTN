@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { supabase } from "./supabase/config";
 import { mapSupabaseUser, isAllowedEmail } from "./supabase/auth";
-import { getFacultySubject } from "./supabase/db";
+import { getFacultySubjects } from "./supabase/db";
 import { useAuthStore } from "./store/authStore";
 import Navbar from "./components/Navbar";
 import ProtectedFacultyRoute from "./components/ProtectedFacultyRoute";
@@ -12,9 +12,10 @@ import SubjectPage from "./pages/SubjectPage";
 import FacultyLogin from "./pages/FacultyLogin";
 import FacultySelectSubject from "./pages/FacultySelectSubject";
 import FacultyDashboard from "./pages/FacultyDashboard";
+import FacultyManageSubject from "./pages/FacultyManageSubject";
 
 const App: React.FC = () => {
-  const { setUser, setLoading, setFacultySubject } = useAuthStore();
+  const { setUser, setLoading, setFacultySubjects } = useAuthStore();
 
   // Bootstrap auth state on app load
   useEffect(() => {
@@ -33,10 +34,10 @@ const App: React.FC = () => {
       setUser(user);
       if (user) {
         try {
-          const fs = await getFacultySubject(user.uid);
-          setFacultySubject(fs);
+          const fs = await getFacultySubjects(user.uid);
+          setFacultySubjects(fs);
         } catch {
-          setFacultySubject(null);
+          setFacultySubjects([]);
         }
       }
       setLoading(false);
@@ -51,7 +52,7 @@ const App: React.FC = () => {
       if (user && !isAllowedEmail(user.email)) {
         await supabase.auth.signOut();
         setUser(null);
-        setFacultySubject(null);
+        setFacultySubjects([]);
         window.location.href = "/";
         return;
       }
@@ -59,19 +60,19 @@ const App: React.FC = () => {
       setUser(user);
       if (user) {
         try {
-          const fs = await getFacultySubject(user.uid);
-          setFacultySubject(fs);
+          const fs = await getFacultySubjects(user.uid);
+          setFacultySubjects(fs);
         } catch {
-          setFacultySubject(null);
+          setFacultySubjects([]);
         }
       } else {
-        setFacultySubject(null);
+        setFacultySubjects([]);
       }
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [setUser, setLoading, setFacultySubject]);
+  }, [setUser, setLoading, setFacultySubjects]);
 
   return (
     <HashRouter>
@@ -95,6 +96,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedFacultyRoute>
                   <FacultyDashboard />
+                </ProtectedFacultyRoute>
+              }
+            />
+            <Route
+              path="/faculty/subject/:id"
+              element={
+                <ProtectedFacultyRoute>
+                  <FacultyManageSubject />
                 </ProtectedFacultyRoute>
               }
             />

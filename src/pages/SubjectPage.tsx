@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { subjects } from "../data/subjects";
-import { getLabManual } from "../supabase/db";
+import { getLabManuals } from "../supabase/db";
 import type { LabManual } from "../supabase/db";
 import PdfViewer from "../components/PdfViewer";
 import {
@@ -11,31 +11,37 @@ import {
   User,
   FileText,
   RefreshCw,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
 
 const SubjectPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const subject = subjects.find((s) => s.id === id);
-  const [manual, setManual] = useState<LabManual | null>(null);
+  const [manuals, setManuals] = useState<LabManual[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [previewManualId, setPreviewManualId] = useState<string | null>(null);
 
-  const fetchManual = async () => {
+  const fetchManuals = async () => {
     if (!id) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await getLabManual(id);
-      setManual(data);
+      const data = await getLabManuals(id);
+      setManuals(data);
     } catch {
-      setError("Failed to load manual info. Check your connection and try again.");
+      setError("Failed to load manuals. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchManual();
+    fetchManuals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -61,14 +67,22 @@ const SubjectPage: React.FC = () => {
     );
   }
 
-  const formattedDate =
-    manual?.uploadedAt?.toDate
-      ? manual.uploadedAt.toDate().toLocaleDateString("en-IN", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      : null;
+  // Find the latest updated date to show at the top
+  const latestManual = manuals.length > 0 
+    ? [...manuals].sort((a, b) => {
+        const dateA = a.updatedAt?.toDate()?.getTime() || 0;
+        const dateB = b.updatedAt?.toDate()?.getTime() || 0;
+        return dateB - dateA;
+      })[0]
+    : null;
+
+  const formattedLatestDate = latestManual?.updatedAt?.toDate
+    ? latestManual.updatedAt.toDate().toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/20 pb-16">
@@ -92,65 +106,126 @@ const SubjectPage: React.FC = () => {
               </h1>
               <p className="text-slate-500 mt-1">{subject.shortName}</p>
             </div>
-
-            {manual?.fileUrl && (
-              <a
-                href={manual.fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                download
-                id={`download-${subject.id}`}
-                className="inline-flex items-center gap-2 shrink-0 bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-3 rounded-xl shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all"
-              >
-                <Download className="w-4 h-4" />
-                Download PDF
-              </a>
-            )}
           </div>
 
           {/* Meta info */}
-          {manual && (
+          {manuals.length > 0 && (
             <div className="flex flex-wrap gap-4 mt-5 pt-5 border-t border-slate-100">
-              {formattedDate && (
+              {formattedLatestDate && (
                 <div className="flex items-center gap-2 text-sm text-slate-500">
                   <Calendar className="w-4 h-4 text-slate-400" />
-                  Last updated: <span className="font-medium text-slate-700">{formattedDate}</span>
+                  Last updated: <span className="font-medium text-slate-700">{formattedLatestDate}</span>
                 </div>
               )}
-              {manual.uploadedBy && (
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <User className="w-4 h-4 text-slate-400" />
-                  Uploaded by:{" "}
-                  <span className="font-medium text-slate-700">
-                    {manual.uploadedBy}
-                  </span>
-                </div>
-              )}
-              {manual.version && (
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <FileText className="w-4 h-4 text-slate-400" />
-                  Version: <span className="font-medium text-slate-700">v{manual.version}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <FileText className="w-4 h-4 text-slate-400" />
+                Total manuals: <span className="font-medium text-slate-700">{manuals.length}</span>
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* PDF viewer */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-8">
         {error ? (
           <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
             <p className="text-red-600 font-medium mb-3">{error}</p>
             <button
-              onClick={fetchManual}
+              onClick={fetchManuals}
               className="inline-flex items-center gap-2 text-sm font-medium text-red-700 hover:text-red-800 transition-colors"
             >
               <RefreshCw className="w-4 h-4" /> Try again
             </button>
           </div>
+        ) : loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+            <p className="text-slate-500 font-medium">Loading manuals...</p>
+          </div>
+        ) : manuals.length > 0 ? (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-slate-800 mb-4">Available Lab Manuals</h2>
+            {manuals.map((manual) => {
+              const formattedDate = manual.updatedAt?.toDate()?.toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "long",
+                year: "numeric"
+              });
+
+              const isPreviewing = previewManualId === manual.id;
+
+              return (
+                <div key={manual.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                        <CheckCircle className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-800 text-base">
+                          {manual.manualType === "complete" ? "Complete Lab Manual" : `Week ${manual.weekNumber}`}
+                          {manual.title ? `: ${manual.title}` : ""}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500 mt-1">
+                          {formattedDate && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {formattedDate}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <FileText className="w-3.5 h-3.5" />
+                            v{manual.version}
+                          </span>
+                          {manual.uploadedBy && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-3.5 h-3.5" />
+                              {manual.uploadedBy}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPreviewManualId(isPreviewing ? null : manual.id)}
+                        className="inline-flex items-center justify-center gap-1.5 text-sm font-medium bg-slate-50 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"
+                      >
+                        {isPreviewing ? <><EyeOff className="w-4 h-4" /> Hide Preview</> : <><Eye className="w-4 h-4" /> Preview</>}
+                      </button>
+                      <a
+                        href={manual.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                        className="inline-flex items-center justify-center gap-1.5 text-sm font-medium bg-blue-700 text-white px-4 py-2.5 rounded-xl shadow-md hover:bg-blue-800 transition-all"
+                      >
+                        <Download className="w-4 h-4" /> Download
+                      </a>
+                    </div>
+                  </div>
+                  
+                  {/* Inline PDF Preview */}
+                  {isPreviewing && (
+                    <div className="mt-4 border-t border-slate-100 pt-4">
+                      <PdfViewer url={manual.fileUrl} loading={false} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         ) : (
-          <PdfViewer url={manual?.fileUrl ?? null} loading={loading} />
+          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+            <AlertCircle className="w-10 h-10 text-amber-500 mb-3" />
+            <h2 className="text-lg font-semibold text-amber-800 mb-1">
+              No manuals available
+            </h2>
+            <p className="text-amber-600 max-w-sm">
+              The faculty has not uploaded any lab manuals for this subject yet. Please check back later.
+            </p>
+          </div>
         )}
       </div>
     </div>

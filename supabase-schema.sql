@@ -5,11 +5,12 @@
 
 -- ─── Faculty Subject Assignments (one-time, locked) ─────────────────────────
 
-CREATE TABLE IF NOT EXISTS faculty_subjects (
-  uid UUID PRIMARY KEY REFERENCES auth.users(id),
+CREATE TABLE IF NOT EXISTS public.faculty_subjects (
+  uid UUID NOT NULL REFERENCES auth.users(id),
   email TEXT NOT NULL,
   subject_id TEXT NOT NULL,
-  assigned_at TIMESTAMPTZ DEFAULT NOW()
+  assigned_at TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (uid, subject_id)
 );
 
 ALTER TABLE faculty_subjects ENABLE ROW LEVEL SECURITY;
@@ -31,12 +32,19 @@ CREATE POLICY "faculty can insert own assignment once"
 -- ─── Lab Manuals Metadata ───────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS lab_manuals (
-  subject_id TEXT PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject_id TEXT NOT NULL,
+  manual_type TEXT NOT NULL CHECK (manual_type IN ('complete', 'weekly')),
+  week_number INT, -- 1 to 12 if weekly, null/0 if complete
+  title TEXT, -- optional title
+  storage_path TEXT NOT NULL,
   file_url TEXT NOT NULL,
   file_name TEXT NOT NULL,
   uploaded_by TEXT NOT NULL,
   uploaded_at TIMESTAMPTZ DEFAULT NOW(),
-  version INT DEFAULT 1
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  version INT DEFAULT 1,
+  UNIQUE(subject_id, manual_type, week_number)
 );
 
 ALTER TABLE lab_manuals ENABLE ROW LEVEL SECURITY;
@@ -57,6 +65,15 @@ CREATE POLICY "only assigned faculty can insert their subject manual"
 
 CREATE POLICY "only assigned faculty can update their subject manual"
   ON lab_manuals FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM faculty_subjects
+      WHERE uid = auth.uid() AND subject_id = lab_manuals.subject_id
+    )
+  );
+
+CREATE POLICY "only assigned faculty can delete their subject manual"
+  ON lab_manuals FOR DELETE
   USING (
     EXISTS (
       SELECT 1 FROM faculty_subjects
@@ -89,6 +106,19 @@ CREATE POLICY "only assigned faculty can update their subject manual"
 -- Policy 3: Faculty can update (re-upload) to own subject folder
 --   CREATE POLICY "faculty update own subject folder"
 --     ON storage.objects FOR UPDATE
+--     USING (
+--       bucket_id = 'lab-manuals'
+--       AND auth.jwt() ->> 'email' LIKE '%@rguktn.ac.in'
+--       AND EXISTS (
+--         SELECT 1 FROM faculty_subjects
+--         WHERE uid = auth.uid()
+--         AND subject_id = (storage.foldername(name))[1]
+--       )
+--     );
+--
+-- Policy 4: Faculty can delete from own subject folder
+--   CREATE POLICY "faculty delete own subject folder"
+--     ON storage.objects FOR DELETE
 --     USING (
 --       bucket_id = 'lab-manuals'
 --       AND auth.jwt() ->> 'email' LIKE '%@rguktn.ac.in'

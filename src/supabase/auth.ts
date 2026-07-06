@@ -57,10 +57,14 @@ export const signInWithGoogle = async (): Promise<{
   error: string | null;
 }> => {
   try {
+    const redirectUrl = import.meta.env.DEV
+      ? window.location.origin
+      : "https://vasu-rguktn.github.io/CSE-LABS-RGUKTN/";
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin + window.location.pathname,
+        redirectTo: redirectUrl,
       },
     });
 
