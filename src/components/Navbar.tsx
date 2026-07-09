@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import { GraduationCap, LogOut, User, Menu, X } from "lucide-react";
 
 const Navbar: React.FC = () => {
-  const { user, facultySubjects } = useAuthStore();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -59,14 +59,12 @@ const Navbar: React.FC = () => {
                   {user.displayName ?? user.email}
                 </span>
               </div>
-              {facultySubjects.length > 0 && (
-                <Link
-                  to="/faculty/dashboard"
-                  className="text-sm font-medium text-blue-700 hover:text-blue-800 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
-                >
-                  My Dashboard
-                </Link>
-              )}
+              <Link
+                to="/faculty/dashboard"
+                className="text-sm font-medium text-blue-700 hover:text-blue-800 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
+              >
+                My Dashboard
+              </Link>
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-red-600 transition-colors px-3 py-2 rounded-lg hover:bg-red-50"
@@ -107,15 +105,13 @@ const Navbar: React.FC = () => {
                 <User className="w-4 h-4 text-blue-600" />
                 <span className="font-medium truncate">{user.email}</span>
               </div>
-              {facultySubjects.length > 0 && (
-                <Link
-                  to="/faculty/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block w-full text-sm font-medium text-blue-700 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
-                >
-                  My Dashboard
-                </Link>
-              )}
+              <Link
+                to="/faculty/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block w-full text-sm font-medium text-blue-700 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                My Dashboard
+              </Link>
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 w-full text-sm font-medium text-red-600 py-2 px-3 rounded-lg hover:bg-red-50 transition-colors"
