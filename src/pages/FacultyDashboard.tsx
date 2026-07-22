@@ -18,12 +18,13 @@ const FacultyDashboard: React.FC = () => {
       const subjectIdsToFetch = new Set<string>();
       facultySubjects.forEach(fs => subjectIdsToFetch.add(fs.subjectId));
 
+      let fetchedSections: FacultySubjectSection[] = [];
       // 1. Fetch mapped sections for this faculty's email
       if (user?.email) {
         try {
-          const sections = await getSectionsForFacultyEmail(user.email);
-          setMappedSections(sections);
-          sections.forEach(sec => {
+          fetchedSections = await getSectionsForFacultyEmail(user.email);
+          setMappedSections(fetchedSections);
+          fetchedSections.forEach(sec => {
             const subj = subjects.find(s => s.code === sec.subjectCode);
             if (subj) subjectIdsToFetch.add(subj.id);
           });
@@ -44,7 +45,7 @@ const FacultyDashboard: React.FC = () => {
           // Compute compliance stats for subjects mapped via sections
           const subject = subjects.find(s => s.id === sId);
           if (subject) {
-            const mappedForThisSubject = sections.filter(sec => sec.subjectCode === subject.code);
+            const mappedForThisSubject = fetchedSections.filter(sec => sec.subjectCode === subject.code);
             if (mappedForThisSubject.length > 0) {
               const { getSectionEnrollmentCount, getSubjectDeadlines, getSubmissionsForFaculty } = await import("../supabase/db");
               const deadlines = await getSubjectDeadlines(subject.code);
