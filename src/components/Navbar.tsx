@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import { GraduationCap, LogOut, User, Menu, X, Database } from "lucide-react";
 
 const Navbar: React.FC = () => {
-  const { user, isAdmin } = useAuthStore();
+  const { user, isAdmin, selectedRole, setSelectedRole } = useAuthStore();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -62,7 +62,7 @@ const Navbar: React.FC = () => {
                 </span>
               </div>
               
-              {isAdmin && (
+              {isAdmin && selectedRole === 'admin' && (
                 <>
                   <Link
                     to="/admin/import"
@@ -83,12 +83,37 @@ const Navbar: React.FC = () => {
                 </>
               )}
 
-              <Link
-                to={isStudent ? "/student/dashboard" : "/faculty/dashboard"}
-                className="text-sm font-medium text-blue-700 hover:text-blue-800 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
-              >
-                My Dashboard
-              </Link>
+              {(!isAdmin || selectedRole === 'faculty' || isStudent) && (
+                <Link
+                  to={isStudent ? "/student/dashboard" : "/faculty/dashboard"}
+                  className="text-sm font-medium text-blue-700 hover:text-blue-800 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
+                >
+                  My Dashboard
+                </Link>
+              )}
+
+              {isAdmin && selectedRole === 'admin' && (
+                <button
+                  onClick={() => {
+                    setSelectedRole('faculty');
+                    navigate('/faculty/dashboard');
+                  }}
+                  className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors px-3 py-2 rounded-lg hover:bg-slate-50"
+                >
+                  Switch to Faculty
+                </button>
+              )}
+              {isAdmin && selectedRole === 'faculty' && (
+                <button
+                  onClick={() => {
+                    setSelectedRole('admin');
+                    navigate('/admin/import');
+                  }}
+                  className="text-sm font-medium text-slate-600 hover:text-indigo-700 transition-colors px-3 py-2 rounded-lg hover:bg-slate-50"
+                >
+                  Switch to Admin
+                </button>
+              )}
               
               <button
                 onClick={handleSignOut}
@@ -140,7 +165,7 @@ const Navbar: React.FC = () => {
                 <span className="font-medium truncate">{user.email}</span>
               </div>
               
-              {isAdmin && (
+              {isAdmin && selectedRole === 'admin' && (
                 <>
                   <Link
                     to="/admin/import"
@@ -161,13 +186,42 @@ const Navbar: React.FC = () => {
                 </>
               )}
 
-              <Link
-                to={isStudent ? "/student/dashboard" : "/faculty/dashboard"}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block w-full text-sm font-medium text-blue-700 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
-              >
-                My Dashboard
-              </Link>
+              {(!isAdmin || selectedRole === 'faculty' || isStudent) && (
+                <Link
+                  to={isStudent ? "/student/dashboard" : "/faculty/dashboard"}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block w-full text-sm font-medium text-blue-700 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  My Dashboard
+                </Link>
+              )}
+              
+              {isAdmin && selectedRole === 'admin' && (
+                <button
+                  onClick={() => {
+                    setSelectedRole('faculty');
+                    navigate('/faculty/dashboard');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full text-sm font-medium text-slate-600 py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  <User className="w-4 h-4" />
+                  Switch to Faculty
+                </button>
+              )}
+              {isAdmin && selectedRole === 'faculty' && (
+                <button
+                  onClick={() => {
+                    setSelectedRole('admin');
+                    navigate('/admin/import');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full text-sm font-medium text-slate-600 py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  <Database className="w-4 h-4" />
+                  Switch to Admin
+                </button>
+              )}
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 w-full text-sm font-medium text-red-600 py-2 px-3 rounded-lg hover:bg-red-50 transition-colors"
