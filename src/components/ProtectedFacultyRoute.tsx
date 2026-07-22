@@ -10,7 +10,7 @@ interface ProtectedFacultyRouteProps {
 const ProtectedFacultyRoute: React.FC<ProtectedFacultyRouteProps> = ({
   children,
 }) => {
-  const { user, loading } = useAuthStore();
+  const { user, loading, isAdmin, selectedRole } = useAuthStore();
 
   if (loading) {
     return (
@@ -25,6 +25,14 @@ const ProtectedFacultyRoute: React.FC<ProtectedFacultyRouteProps> = ({
 
   if (!user) {
     return <Navigate to="/faculty/login" replace />;
+  }
+
+  if (isAdmin && !selectedRole) {
+    return <Navigate to="/role-selection" replace />;
+  }
+
+  if (isAdmin && selectedRole === "admin") {
+    return <Navigate to="/admin/import" replace />;
   }
 
   return <>{children}</>;

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { subjects } from "../data/subjects";
-import { getLabManuals } from "../supabase/db";
+import { getLabManuals, getFacultyForSubjectSection } from "../supabase/db";
 import type { LabManual } from "../supabase/db";
 import PdfViewer from "../components/PdfViewer";
+import { useAuthStore } from "../store/authStore";
 import {
   Download,
   ArrowLeft,
@@ -25,25 +26,44 @@ const SubjectPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   const [previewManualId, setPreviewManualId] = useState<string | null>(null);
+  
+  const { studentProfile } = useAuthStore();
+  const [facultyMapping, setFacultyMapping] = useState<{ facultyName: string | null, coFacultyName: string | null } | null>(null);
 
-  const fetchManuals = async () => {
-    if (!id) return;
+  const fetchManualsAndFaculty = async () => {
+    if (!id || !subject) return;
     setLoading(true);
     setError(null);
     try {
       const data = await getLabManuals(id);
       setManuals(data);
+      
+      // Fetch faculty mapping for this specific student's section
+      if (studentProfile && subject.code) {
+        const mapping = await getFacultyForSubjectSection(
+          subject.code,
+          studentProfile.engineeringYear,
+          studentProfile.branch,
+          studentProfile.section
+        );
+        if (mapping) {
+          setFacultyMapping({
+            facultyName: mapping.facultyName,
+            coFacultyName: mapping.coFacultyName
+          });
+        }
+      }
     } catch {
-      setError("Failed to load manuals. Check your connection and try again.");
+      setError("Failed to load data. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchManuals();
+    fetchManualsAndFaculty();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, subject, studentProfile]);
 
   if (!subject) {
     return (
@@ -108,9 +128,9 @@ const SubjectPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Meta info */}
-          {manuals.length > 0 && (
-            <div className="flex flex-wrap gap-4 mt-5 pt-5 border-t border-slate-100">
+          {/* Meta info & Faculty */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mt-5 pt-5 border-t border-slate-100">
+            <div className="flex flex-wrap gap-4">
               {formattedLatestDate && (
                 <div className="flex items-center gap-2 text-sm text-slate-500">
                   <Calendar className="w-4 h-4 text-slate-400" />
@@ -122,7 +142,23 @@ const SubjectPage: React.FC = () => {
                 Total manuals: <span className="font-medium text-slate-700">{manuals.length}</span>
               </div>
             </div>
-          )}
+
+            <div className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+              <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1">
+                <User className="w-4 h-4 text-blue-600" /> Faculty
+              </div>
+              <div className="text-sm text-slate-600">
+                {facultyMapping ? (
+                  <>
+                    {facultyMapping.facultyName || "Not assigned"}
+                    {facultyMapping.coFacultyName && ` & ${facultyMapping.coFacultyName}`}
+                  </>
+                ) : (
+                  "Faculty not yet assigned"
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -131,7 +167,7 @@ const SubjectPage: React.FC = () => {
           <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
             <p className="text-red-600 font-medium mb-3">{error}</p>
             <button
-              onClick={fetchManuals}
+              onClick={fetchManualsAndFaculty}
               className="inline-flex items-center gap-2 text-sm font-medium text-red-700 hover:text-red-800 transition-colors"
             >
               <RefreshCw className="w-4 h-4" /> Try again

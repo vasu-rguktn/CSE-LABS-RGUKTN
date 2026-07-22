@@ -73,3 +73,37 @@ export const deleteLabManualFile = async (storagePath: string): Promise<void> =>
 };
 
 
+
+/**
+ * Uploads a student submission ZIP file to the "student-submissions" bucket.
+ * The path format is: `${subjectCode}/week-${weekNumber}/${rollNumber}.zip`
+ */
+export const uploadStudentSubmission = async (
+  file: File,
+  subjectCode: string,
+  weekNumber: number,
+  rollNumber: string
+): Promise<{ path: string; url: string }> => {
+  const fileExt = file.name.split('.').pop();
+  const filePath = `${subjectCode}/week-${weekNumber}/${rollNumber.toLowerCase()}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('student-submissions')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true,
+    });
+
+  if (uploadError) {
+    throw new Error(uploadError.message);
+  }
+
+  const { data } = supabase.storage
+    .from('student-submissions')
+    .getPublicUrl(filePath);
+
+  return {
+    path: filePath,
+    url: data.publicUrl,
+  };
+};

@@ -2,33 +2,96 @@ import React, { useEffect, useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { subjects } from "../data/subjects";
-import { getLabManuals } from "../supabase/db";
-import type { LabManual } from "../supabase/db";
+import { getLabManuals, getSectionsForFacultyEmail } from "../supabase/db";
+import type { LabManual, FacultySubjectSection } from "../supabase/db";
 import { BookOpen, Plus, FileText, Calendar, AlertCircle } from "lucide-react";
 
 const FacultyDashboard: React.FC = () => {
   const { user, facultySubjects } = useAuthStore();
   const [manualsMap, setManualsMap] = useState<Record<string, LabManual[]>>({});
+  const [complianceStats, setComplianceStats] = useState<Record<string, { totalEnrolled: number, totalSubmitted: number, hasMissing: boolean }>>({});
+  const [mappedSections, setMappedSections] = useState<FacultySubjectSection[]>([]);
 
   useEffect(() => {
-    const fetchAllManuals = async () => {
-      const newMap: Record<string, LabManual[]> = {};
-      for (const fs of facultySubjects) {
+    const fetchAllData = async () => {
+      // We'll collect all unique subject IDs from both sources
+      const subjectIdsToFetch = new Set<string>();
+      facultySubjects.forEach(fs => subjectIdsToFetch.add(fs.subjectId));
+
+      // 1. Fetch mapped sections for this faculty's email
+      if (user?.email) {
         try {
-          const mList = await getLabManuals(fs.subjectId);
-          newMap[fs.subjectId] = mList;
+          const sections = await getSectionsForFacultyEmail(user.email);
+          setMappedSections(sections);
+          sections.forEach(sec => {
+            const subj = subjects.find(s => s.code === sec.subjectCode);
+            if (subj) subjectIdsToFetch.add(subj.id);
+          });
+        } catch (e) {
+          console.error("Failed to fetch mapped sections", e);
+        }
+      }
+
+      // 2. Fetch manuals and compliance stats for all unique subjects
+      const newMap: Record<string, LabManual[]> = {};
+      const newStats: Record<string, { totalEnrolled: number, totalSubmitted: number, hasMissing: boolean }> = {};
+      
+      for (const sId of Array.from(subjectIdsToFetch)) {
+        try {
+          const mList = await getLabManuals(sId);
+          newMap[sId] = mList;
+          
+          // Compute compliance stats for subjects mapped via sections
+          const subject = subjects.find(s => s.id === sId);
+          if (subject) {
+            const mappedForThisSubject = sections.filter(sec => sec.subjectCode === subject.code);
+            if (mappedForThisSubject.length > 0) {
+              const { getSectionEnrollmentCount, getSubjectDeadlines, getSubmissionsForFaculty } = await import("../supabase/db");
+              const deadlines = await getSubjectDeadlines(subject.code);
+              const submissions = await getSubmissionsForFaculty(subject.code);
+              
+              let totalEnrolled = 0;
+              let totalSubmitted = 0;
+              let hasMissing = false;
+              
+              if (deadlines.length > 0) {
+                // Check latest deadline
+                const latestDeadline = deadlines.sort((a, b) => new Date(b.deadline_at).getTime() - new Date(a.deadline_at).getTime())[0];
+                
+                for (const sec of mappedForThisSubject) {
+                  const enrolled = await getSectionEnrollmentCount(sec.batchYear, sec.branch, sec.section);
+                  totalEnrolled += enrolled;
+                  
+                  // Filter submissions for this section and week
+                  const secSubmissions = submissions.filter(sub => 
+                    sub.week_number === latestDeadline.week_number && 
+                    sub.students_master.section === sec.section
+                  );
+                  totalSubmitted += secSubmissions.length;
+                }
+                
+                if (totalSubmitted < totalEnrolled) {
+                  hasMissing = true;
+                }
+              }
+              newStats[sId] = { totalEnrolled, totalSubmitted, hasMissing };
+            }
+          }
         } catch {
-          newMap[fs.subjectId] = [];
+          newMap[sId] = [];
         }
       }
       setManualsMap(newMap);
+      setComplianceStats(newStats);
     };
-    if (facultySubjects.length > 0) {
-      fetchAllManuals();
+    
+    if (user) {
+      fetchAllData();
     }
-  }, [facultySubjects]);
+  }, [facultySubjects, user]);
 
-  if (!facultySubjects || facultySubjects.length === 0) {
+  // We allow rendering if they have either legacy self-claims OR new mappings
+  if ((!facultySubjects || facultySubjects.length === 0) && mappedSections.length === 0) {
     return <Navigate to="/faculty/select-subject" replace />;
   }
 
@@ -62,10 +125,18 @@ const FacultyDashboard: React.FC = () => {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {facultySubjects.map((fs) => {
-            const subject = subjects.find((s) => s.id === fs.subjectId);
-            const mList = manualsMap[fs.subjectId] || [];
-            if (!subject) return null;
+          {(() => {
+            const combinedSubjectIds = new Set<string>();
+            facultySubjects.forEach((fs) => combinedSubjectIds.add(fs.subjectId));
+            mappedSections.forEach((sec) => {
+              const subj = subjects.find(s => s.code === sec.subjectCode);
+              if (subj) combinedSubjectIds.add(subj.id);
+            });
+
+            return Array.from(combinedSubjectIds).map((subjectId) => {
+              const subject = subjects.find((s) => s.id === subjectId);
+              const mList = manualsMap[subjectId] || [];
+              if (!subject) return null;
 
             const latestManual = mList.length > 0 
               ? [...mList].sort((a, b) => {
@@ -110,6 +181,12 @@ const FacultyDashboard: React.FC = () => {
                       No Manual Uploaded Yet
                     </div>
                   )}
+                  {complianceStats[subject.id] && complianceStats[subject.id].totalEnrolled > 0 && (
+                    <div className={`mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${complianceStats[subject.id].hasMissing ? 'text-red-600 bg-red-50' : 'text-emerald-600 bg-emerald-50'}`}>
+                      <AlertCircle className="w-4 h-4" />
+                      {complianceStats[subject.id].totalSubmitted} of {complianceStats[subject.id].totalEnrolled} submitted
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-sm text-slate-500">
@@ -127,7 +204,8 @@ const FacultyDashboard: React.FC = () => {
                 </div>
               </Link>
             );
-          })}
+            });
+          })()}
         </div>
       </div>
     </div>

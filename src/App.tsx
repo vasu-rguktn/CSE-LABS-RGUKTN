@@ -2,8 +2,8 @@ import React, { useEffect } from "react";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { supabase } from "./supabase/config";
-import { mapSupabaseUser, isAllowedEmail } from "./supabase/auth";
-import { getFacultySubjects } from "./supabase/db";
+import { mapSupabaseUser, isAllowedEmail, isStudentEmail } from "./supabase/auth";
+import { getFacultySubjects, getStudentMasterByEmail, getStudentSubjects } from "./supabase/db";
 import { useAuthStore } from "./store/authStore";
 import Navbar from "./components/Navbar";
 import ProtectedFacultyRoute from "./components/ProtectedFacultyRoute";
@@ -13,9 +13,45 @@ import FacultyLogin from "./pages/FacultyLogin";
 import FacultySelectSubject from "./pages/FacultySelectSubject";
 import FacultyDashboard from "./pages/FacultyDashboard";
 import FacultyManageSubject from "./pages/FacultyManageSubject";
-
+import FacultyAdminImport from "./pages/FacultyAdminImport";
+import StudentLogin from "./pages/StudentLogin";
+import StudentDashboard from "./pages/StudentDashboard";
+import StudentSubjectView from "./pages/StudentSubjectView";
+import ProtectedStudentRoute from "./components/ProtectedStudentRoute";
+import RoleSelection from "./pages/RoleSelection";
+import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
+import AdminRosterView from "./pages/AdminRosterView";
 const App: React.FC = () => {
-  const { setUser, setLoading, setFacultySubjects } = useAuthStore();
+  const { setUser, setLoading, setFacultySubjects, setStudentProfile, setStudentSubjects } = useAuthStore();
+
+  const fetchUserData = async (user: any) => {
+    try {
+      if (isStudentEmail(user.email)) {
+        const studentProfile = await getStudentMasterByEmail(user.email!);
+        setStudentProfile(studentProfile);
+        if (studentProfile) {
+          const subjects = await getStudentSubjects(
+            studentProfile.engineeringYear,
+            studentProfile.semester,
+            studentProfile.branch
+          );
+          setStudentSubjects(subjects);
+        }
+      } else {
+        const fs = await getFacultySubjects(user.uid);
+        setFacultySubjects(fs);
+        // Admin check
+        const { isAdminUser } = await import("./supabase/db");
+        const isAdmin = await isAdminUser(user.email!);
+        useAuthStore.getState().setIsAdmin(isAdmin);
+      }
+    } catch {
+      setFacultySubjects([]);
+      setStudentProfile(null);
+      setStudentSubjects([]);
+      useAuthStore.getState().setIsAdmin(false);
+    }
+  };
 
   // Bootstrap auth state on app load
   useEffect(() => {
@@ -33,12 +69,7 @@ const App: React.FC = () => {
 
       setUser(user);
       if (user) {
-        try {
-          const fs = await getFacultySubjects(user.uid);
-          setFacultySubjects(fs);
-        } catch {
-          setFacultySubjects([]);
-        }
+        await fetchUserData(user);
       }
       setLoading(false);
     });
@@ -53,26 +84,25 @@ const App: React.FC = () => {
         await supabase.auth.signOut();
         setUser(null);
         setFacultySubjects([]);
+        setStudentProfile(null);
+        setStudentSubjects([]);
         window.location.href = "/";
         return;
       }
 
       setUser(user);
       if (user) {
-        try {
-          const fs = await getFacultySubjects(user.uid);
-          setFacultySubjects(fs);
-        } catch {
-          setFacultySubjects([]);
-        }
+        await fetchUserData(user);
       } else {
         setFacultySubjects([]);
+        setStudentProfile(null);
+        setStudentSubjects([]);
       }
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [setUser, setLoading, setFacultySubjects]);
+  }, [setUser, setLoading, setFacultySubjects, setStudentProfile, setStudentSubjects]);
 
   return (
     <HashRouter>
@@ -83,6 +113,23 @@ const App: React.FC = () => {
             <Route path="/" element={<Landing />} />
             <Route path="/subject/:id" element={<SubjectPage />} />
             <Route path="/faculty/login" element={<FacultyLogin />} />
+            <Route path="/student/login" element={<StudentLogin />} />
+            <Route
+              path="/student/dashboard"
+              element={
+                <ProtectedStudentRoute>
+                  <StudentDashboard />
+                </ProtectedStudentRoute>
+              }
+            />
+            <Route
+              path="/student/subject/:code"
+              element={
+                <ProtectedStudentRoute>
+                  <StudentSubjectView />
+                </ProtectedStudentRoute>
+              }
+            />
             <Route
               path="/faculty/select-subject"
               element={
@@ -105,6 +152,34 @@ const App: React.FC = () => {
                 <ProtectedFacultyRoute>
                   <FacultyManageSubject />
                 </ProtectedFacultyRoute>
+              }
+            />
+            <Route
+              path="/faculty/admin/import"
+              element={
+                <ProtectedAdminRoute>
+                  <FacultyAdminImport />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/role-selection"
+              element={<RoleSelection />}
+            />
+            <Route
+              path="/admin/import"
+              element={
+                <ProtectedAdminRoute>
+                  <FacultyAdminImport />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/admin/roster"
+              element={
+                <ProtectedAdminRoute>
+                  <AdminRosterView />
+                </ProtectedAdminRoute>
               }
             />
             {/* 404 fallback */}

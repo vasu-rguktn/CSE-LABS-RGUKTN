@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
-import { signOut } from "../supabase/auth";
+import { signOut, isStudentEmail } from "../supabase/auth";
 import toast from "react-hot-toast";
-import { GraduationCap, LogOut, User, Menu, X } from "lucide-react";
+import { GraduationCap, LogOut, User, Menu, X, Database } from "lucide-react";
 
 const Navbar: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, isAdmin } = useAuthStore();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -20,6 +20,8 @@ const Navbar: React.FC = () => {
     }
     setMobileMenuOpen(false);
   };
+
+  const isStudent = user ? isStudentEmail(user.email) : false;
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm">
@@ -48,7 +50,7 @@ const Navbar: React.FC = () => {
                   {user.photoURL ? (
                     <img
                       src={user.photoURL}
-                      alt={user.displayName ?? "Faculty"}
+                      alt={user.displayName ?? "User"}
                       className="w-6 h-6 rounded-full object-cover"
                     />
                   ) : (
@@ -59,12 +61,35 @@ const Navbar: React.FC = () => {
                   {user.displayName ?? user.email}
                 </span>
               </div>
+              
+              {isAdmin && (
+                <>
+                  <Link
+                    to="/admin/import"
+                    className="flex items-center gap-1 text-sm font-medium text-indigo-700 hover:text-indigo-800 transition-colors px-3 py-2 rounded-lg hover:bg-indigo-50"
+                    title="Admin Import"
+                  >
+                    <Database className="w-4 h-4" />
+                    <span className="hidden md:inline">Import Data</span>
+                  </Link>
+                  <Link
+                    to="/admin/roster"
+                    className="flex items-center gap-1 text-sm font-medium text-indigo-700 hover:text-indigo-800 transition-colors px-3 py-2 rounded-lg hover:bg-indigo-50"
+                    title="Admin Roster"
+                  >
+                    <User className="w-4 h-4" />
+                    <span className="hidden md:inline">Class Roster</span>
+                  </Link>
+                </>
+              )}
+
               <Link
-                to="/faculty/dashboard"
+                to={isStudent ? "/student/dashboard" : "/faculty/dashboard"}
                 className="text-sm font-medium text-blue-700 hover:text-blue-800 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
               >
                 My Dashboard
               </Link>
+              
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-red-600 transition-colors px-3 py-2 rounded-lg hover:bg-red-50"
@@ -75,14 +100,23 @@ const Navbar: React.FC = () => {
               </button>
             </>
           ) : (
-            <Link
-              to="/faculty/login"
-              className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all"
-              id="faculty-login-btn"
-            >
-              <User className="w-4 h-4" />
-              Faculty Login
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/student/login"
+                className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all"
+              >
+                <User className="w-4 h-4" />
+                Student Login
+              </Link>
+              <Link
+                to="/faculty/login"
+                className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all"
+                id="faculty-login-btn"
+              >
+                <User className="w-4 h-4" />
+                Faculty Login
+              </Link>
+            </div>
           )}
         </div>
 
@@ -105,8 +139,30 @@ const Navbar: React.FC = () => {
                 <User className="w-4 h-4 text-blue-600" />
                 <span className="font-medium truncate">{user.email}</span>
               </div>
+              
+              {isAdmin && (
+                <>
+                  <Link
+                    to="/admin/import"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 w-full text-sm font-medium text-indigo-700 py-2 px-3 rounded-lg hover:bg-indigo-50 transition-colors"
+                  >
+                    <Database className="w-4 h-4" />
+                    Import Data
+                  </Link>
+                  <Link
+                    to="/admin/roster"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 w-full text-sm font-medium text-indigo-700 py-2 px-3 rounded-lg hover:bg-indigo-50 transition-colors"
+                  >
+                    <User className="w-4 h-4" />
+                    Class Roster
+                  </Link>
+                </>
+              )}
+
               <Link
-                to="/faculty/dashboard"
+                to={isStudent ? "/student/dashboard" : "/faculty/dashboard"}
                 onClick={() => setMobileMenuOpen(false)}
                 className="block w-full text-sm font-medium text-blue-700 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
               >
@@ -121,14 +177,24 @@ const Navbar: React.FC = () => {
               </button>
             </>
           ) : (
-            <Link
-              to="/faculty/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center justify-center gap-2 w-full bg-blue-700 text-white text-sm font-semibold py-3 px-5 rounded-xl"
-            >
-              <User className="w-4 h-4" />
-              Faculty Login
-            </Link>
+            <div className="flex flex-col gap-2">
+              <Link
+                to="/student/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-2 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold py-3 px-5 rounded-xl transition-all"
+              >
+                <User className="w-4 h-4" />
+                Student Login
+              </Link>
+              <Link
+                to="/faculty/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-2 w-full bg-blue-700 text-white text-sm font-semibold py-3 px-5 rounded-xl"
+              >
+                <User className="w-4 h-4" />
+                Faculty Login
+              </Link>
+            </div>
           )}
         </div>
       )}
