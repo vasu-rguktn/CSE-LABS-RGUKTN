@@ -11,11 +11,10 @@ const FacultyAdminImport: React.FC = () => {
   const { user } = useAuthStore();
   const [importingBoS, setImportingBoS] = useState(false);
   const [importingStudents, setImportingStudents] = useState(false);
+  const [globalSemester, setGlobalSemester] = useState("Sem-1");
   
   // Faculty Mapping States
   const [importingFacultyMapping, setImportingFacultyMapping] = useState(false);
-  const [mappingBatchYear, setMappingBatchYear] = useState("E3");
-  const [mappingBranch, setMappingBranch] = useState("CSE");
 
   // If not a faculty (email restriction is already on protected route), we might want to restrict this to admins later
   if (!user) {
@@ -56,11 +55,11 @@ const FacultyAdminImport: React.FC = () => {
         }
 
         subjects.push({
-          courseCode: row["Course Code"],
-          subjectName: row["Subject Name"],
-          engineeringYear: row["Engineering Year"],
-          semester: row["Semester"],
-          branch: row["Branch"],
+          courseCode: row["Course Code"].toString().trim(),
+          subjectName: row["Subject Name"].toString().trim(),
+          engineeringYear: row["Engineering Year"].toString().trim(),
+          semester: row["Semester"].toString().trim(),
+          branch: row["Branch"].toString().trim(),
           credits: parseInt(row["Credits"]) || 0,
           isLab
         });
@@ -99,24 +98,38 @@ const FacultyAdminImport: React.FC = () => {
       let missingEmailCount = 0;
 
       for (const row of jsonData) {
-        if (!row["ID Number"] || !row["Name"] || !row["Branch"] || !row["Section"] || !row["Engineering Year"] || !row["Semester"]) {
+        if (!row["ID Number"] || !row["Name"] || !row["Branch"] || !row["SECTION"]) {
           continue; 
         }
 
-        let emailId = row["Email_id"]?.trim();
+        let emailId = row["email"]?.trim();
         if (!emailId) {
           // Fallback guess: n220034@rguktn.ac.in
           emailId = `${row["ID Number"].toLowerCase()}@rguktn.ac.in`;
           missingEmailCount++;
         }
 
+        const rawSection = row["SECTION"]?.toString().trim() || "";
+        
+        // Parse E1CSE1 -> E1, CSE, 1
+        let engYear = "Unknown";
+        let parsedBranch = row["Branch"] || "Unknown";
+        let parsedSection = rawSection;
+        
+        const secMatch = rawSection.match(/^(E[1-4])([A-Z&]+)(\d+)$/i);
+        if (secMatch) {
+          engYear = secMatch[1].toUpperCase();
+          parsedBranch = secMatch[2].toUpperCase();
+          parsedSection = secMatch[0].toUpperCase(); // Keep full section string like E1CSE1
+        }
+
         students.push({
-          rollNumber: row["ID Number"],
-          name: row["Name"],
-          branch: row["Branch"],
-          section: row["Section"],
-          engineeringYear: row["Engineering Year"],
-          semester: row["Semester"],
+          rollNumber: row["ID Number"].toString().trim(),
+          name: row["Name"].toString().trim(),
+          branch: parsedBranch,
+          section: parsedSection,
+          engineeringYear: engYear,
+          semester: globalSemester,
           emailId
         });
       }
@@ -141,7 +154,7 @@ const FacultyAdminImport: React.FC = () => {
     if (!file) return;
 
     setImportingFacultyMapping(true);
-    const toastId = toast.loading(`Processing Faculty Mapping for ${mappingBatchYear} - ${mappingBranch}...`);
+    const toastId = toast.loading(`Processing Faculty Mapping...`);
 
     try {
       const data = await file.arrayBuffer();
@@ -156,6 +169,7 @@ const FacultyAdminImport: React.FC = () => {
         const courseCode = row["Course Code"]?.toString().trim();
         const sectionsRaw = row["Sections"]?.toString().trim();
         const facultyRaw = row["Faculty Name(s)"]?.toString().trim() || "";
+        const facultyEmail = row["faculty email"]?.toString().trim() || null;
 
         if (!courseCode || !sectionsRaw) {
           continue; // Skip invalid
@@ -188,13 +202,25 @@ const FacultyAdminImport: React.FC = () => {
 
         // For each section, add a mapping row
         for (const sec of sections) {
+          // Parse E1CSE1 -> E1, CSE, 1
+          let batchYear = "Unknown";
+          let branch = "Unknown";
+          let parsedSection = sec;
+          
+          const secMatch = sec.match(/^(E[1-4])([A-Z&]+)(\d+)$/i);
+          if (secMatch) {
+            batchYear = secMatch[1].toUpperCase();
+            branch = secMatch[2].toUpperCase();
+            parsedSection = secMatch[0].toUpperCase();
+          }
+          
           mappings.push({
             subjectCode: courseCode,
-            batchYear: mappingBatchYear,
-            branch: mappingBranch,
-            section: sec,
+            batchYear,
+            branch,
+            section: parsedSection,
             facultyName,
-            facultyEmail: null, // Since we don't know it from the sheet, we'll try to match it later or leave it null
+            facultyEmail: facultyEmail, 
             coFacultyName,
             notes
           });
@@ -270,12 +296,24 @@ const FacultyAdminImport: React.FC = () => {
               <FileSpreadsheet className="w-6 h-6 text-emerald-600" />
               <h2 className="text-lg font-bold text-slate-800">Student Master</h2>
             </div>
-            <p className="text-sm text-slate-600 mb-6 flex-1">
+            <p className="text-sm text-slate-600 mb-4 flex-1">
               Upload the Student Master Excel to enroll students.
               <br/><br/>
-              Required columns: <code>ID Number, Name, Branch, Section, Engineering Year, Semester, Email_id</code>.
+              Required columns: <code>ID Number, Name, Branch, SECTION, class room, email</code>.
             </p>
             
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-slate-500 mb-1">Global Semester (applied to all imported students)</label>
+              <select 
+                value={globalSemester}
+                onChange={(e) => setGlobalSemester(e.target.value)}
+                className="w-full text-sm rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="Sem-1">Sem-1</option>
+                <option value="Sem-2">Sem-2</option>
+              </select>
+            </div>
+
             <div className="relative">
               <input 
                 type="file" 
@@ -302,41 +340,9 @@ const FacultyAdminImport: React.FC = () => {
             <p className="text-sm text-slate-600 mb-4 flex-1">
               Upload the Faculty-Subject-Section mapping Excel.
               <br/><br/>
-              Required columns: <code>Course Code, Subject, Sections, Faculty Name(s)</code>.
+              Required columns: <code>Course Code, Subject, Sections, Faculty Name(s), faculty email</code>.
             </p>
             
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Batch Year</label>
-                <select 
-                  value={mappingBatchYear}
-                  onChange={(e) => setMappingBatchYear(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-fuchsia-500"
-                >
-                  <option value="E1">E1</option>
-                  <option value="E2">E2</option>
-                  <option value="E3">E3</option>
-                  <option value="E4">E4</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Branch</label>
-                <select 
-                  value={mappingBranch}
-                  onChange={(e) => setMappingBranch(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-fuchsia-500"
-                >
-                  <option value="CSE">CSE</option>
-                  <option value="ECE">ECE</option>
-                  <option value="EEE">EEE</option>
-                  <option value="ME">ME</option>
-                  <option value="CE">CE</option>
-                  <option value="MME">MME</option>
-                  <option value="CHEM">CHEM</option>
-                </select>
-              </div>
-            </div>
-
             <div className="relative">
               <input 
                 type="file" 

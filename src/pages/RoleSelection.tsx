@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { supabase } from "../supabase/config";
 
@@ -8,8 +8,7 @@ const RoleSelection: React.FC = () => {
   const navigate = useNavigate();
 
   if (!user) {
-    navigate("/");
-    return null;
+    return <Navigate to="/" replace />;
   }
 
   const handleSelectRole = (role: "admin" | "faculty") => {

@@ -83,7 +83,7 @@ const Navbar: React.FC = () => {
                 </>
               )}
 
-              {(!isAdmin || selectedRole === 'faculty' || isStudent) && (
+              {(!isAdmin || selectedRole !== 'admin') && (
                 <Link
                   to={isStudent ? "/student/dashboard" : "/faculty/dashboard"}
                   className="text-sm font-medium text-blue-700 hover:text-blue-800 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
@@ -103,7 +103,7 @@ const Navbar: React.FC = () => {
                   Switch to Faculty
                 </button>
               )}
-              {isAdmin && selectedRole === 'faculty' && (
+              {isAdmin && selectedRole !== 'admin' && (
                 <button
                   onClick={() => {
                     setSelectedRole('admin');
@@ -186,7 +186,7 @@ const Navbar: React.FC = () => {
                 </>
               )}
 
-              {(!isAdmin || selectedRole === 'faculty' || isStudent) && (
+              {(!isAdmin || selectedRole !== 'admin') && (
                 <Link
                   to={isStudent ? "/student/dashboard" : "/faculty/dashboard"}
                   onClick={() => setMobileMenuOpen(false)}
@@ -209,7 +209,7 @@ const Navbar: React.FC = () => {
                   Switch to Faculty
                 </button>
               )}
-              {isAdmin && selectedRole === 'faculty' && (
+              {isAdmin && selectedRole !== 'admin' && (
                 <button
                   onClick={() => {
                     setSelectedRole('admin');

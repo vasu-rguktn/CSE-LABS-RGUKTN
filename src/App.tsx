@@ -22,39 +22,39 @@ import RoleSelection from "./pages/RoleSelection";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 import AdminRosterView from "./pages/AdminRosterView";
 const App: React.FC = () => {
-  const { setUser, setLoading, setFacultySubjects, setStudentProfile, setStudentSubjects } = useAuthStore();
-
   const fetchUserData = async (user: any) => {
     try {
       if (isStudentEmail(user.email)) {
         const studentProfile = await getStudentMasterByEmail(user.email!);
-        setStudentProfile(studentProfile);
+        useAuthStore.getState().setStudentProfile(studentProfile);
         if (studentProfile) {
           const subjects = await getStudentSubjects(
             studentProfile.engineeringYear,
             studentProfile.semester,
             studentProfile.branch
           );
-          setStudentSubjects(subjects);
+          useAuthStore.getState().setStudentSubjects(subjects);
         }
       } else {
         const fs = await getFacultySubjects(user.uid);
-        setFacultySubjects(fs);
+        useAuthStore.getState().setFacultySubjects(fs);
         // Admin check
         const { isAdminUser } = await import("./supabase/db");
         const isAdmin = await isAdminUser(user.email!);
         useAuthStore.getState().setIsAdmin(isAdmin);
       }
     } catch {
-      setFacultySubjects([]);
-      setStudentProfile(null);
-      setStudentSubjects([]);
+      useAuthStore.getState().setFacultySubjects([]);
+      useAuthStore.getState().setStudentProfile(null);
+      useAuthStore.getState().setStudentSubjects([]);
       useAuthStore.getState().setIsAdmin(false);
     }
   };
 
   // Bootstrap auth state on app load
   useEffect(() => {
+    const { setUser, setLoading, setFacultySubjects, setStudentProfile, setStudentSubjects } = useAuthStore.getState();
+    
     // Check initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       const user = mapSupabaseUser(session?.user ?? null);
@@ -82,27 +82,27 @@ const App: React.FC = () => {
 
       if (user && !isAllowedEmail(user.email)) {
         await supabase.auth.signOut();
-        setUser(null);
-        setFacultySubjects([]);
-        setStudentProfile(null);
-        setStudentSubjects([]);
+        useAuthStore.getState().setUser(null);
+        useAuthStore.getState().setFacultySubjects([]);
+        useAuthStore.getState().setStudentProfile(null);
+        useAuthStore.getState().setStudentSubjects([]);
         window.location.href = "/";
         return;
       }
 
-      setUser(user);
+      useAuthStore.getState().setUser(user);
       if (user) {
         await fetchUserData(user);
       } else {
-        setFacultySubjects([]);
-        setStudentProfile(null);
-        setStudentSubjects([]);
+        useAuthStore.getState().setFacultySubjects([]);
+        useAuthStore.getState().setStudentProfile(null);
+        useAuthStore.getState().setStudentSubjects([]);
       }
-      setLoading(false);
+      useAuthStore.getState().setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [setUser, setLoading, setFacultySubjects, setStudentProfile, setStudentSubjects]);
+  }, []);
 
   return (
     <HashRouter>

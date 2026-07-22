@@ -180,7 +180,15 @@ export interface StudentMaster {
 }
 
 export const upsertSubjectsMaster = async (subjects: SubjectMaster[]) => {
-  const payload = subjects.map(s => ({
+  // Deduplicate by courseCode (keep the last occurrence)
+  const dedupedSubjects = Object.values(
+    subjects.reduce((acc, curr) => {
+      acc[curr.courseCode] = curr;
+      return acc;
+    }, {} as Record<string, SubjectMaster>)
+  );
+
+  const payload = dedupedSubjects.map(s => ({
     course_code: s.courseCode,
     subject_name: s.subjectName,
     engineering_year: s.engineeringYear,
@@ -198,7 +206,15 @@ export const upsertSubjectsMaster = async (subjects: SubjectMaster[]) => {
 };
 
 export const upsertStudentsMaster = async (students: StudentMaster[]) => {
-  const payload = students.map(s => ({
+  // Deduplicate by rollNumber (keep the last occurrence)
+  const dedupedStudents = Object.values(
+    students.reduce((acc, curr) => {
+      acc[curr.rollNumber.toLowerCase()] = curr;
+      return acc;
+    }, {} as Record<string, StudentMaster>)
+  );
+
+  const payload = dedupedStudents.map(s => ({
     roll_number: s.rollNumber.toLowerCase(),
     name: s.name,
     branch: s.branch,
@@ -355,7 +371,16 @@ export interface FacultySubjectSection {
 }
 
 export const upsertFacultySubjectSections = async (mappings: FacultySubjectSection[]) => {
-  const payload = mappings.map(m => ({
+  // Deduplicate by the unique constraint
+  const dedupedMappings = Object.values(
+    mappings.reduce((acc, curr) => {
+      const key = `${curr.subjectCode}_${curr.batchYear}_${curr.branch}_${curr.section}`;
+      acc[key] = curr;
+      return acc;
+    }, {} as Record<string, FacultySubjectSection>)
+  );
+
+  const payload = dedupedMappings.map(m => ({
     subject_code: m.subjectCode,
     batch_year: m.batchYear,
     branch: m.branch,
@@ -366,20 +391,14 @@ export const upsertFacultySubjectSections = async (mappings: FacultySubjectSecti
     notes: m.notes
   }));
 
-  // We don't have a unique constraint specifically, so maybe we just insert or delete-and-insert.
-  // Actually, we can delete all existing mappings for the specific subjects/batches in the payload and then insert.
-  // Or since the schema has no unique constraint except ID, let's just insert for now. 
-  // Wait, if it's an import, it's better to clear existing mapping for that batch/branch to avoid duplicates.
-  if (mappings.length > 0) {
-    const batchYear = mappings[0].batchYear;
-    const branch = mappings[0].branch;
-    
-    // Clear old mappings for this batch and branch
+  const subjectCodes = Array.from(new Set(payload.map(p => p.subject_code)));
+
+  if (subjectCodes.length > 0) {
+    // Clear existing mappings for these subjects to avoid duplicates
     await supabase
       .from('faculty_subject_section')
       .delete()
-      .eq('batch_year', batchYear)
-      .eq('branch', branch);
+      .in('subject_code', subjectCodes);
   }
 
   const { error } = await supabase

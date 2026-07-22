@@ -6,13 +6,36 @@ const AdminRosterView: React.FC = () => {
   const [students, setStudents] = useState<StudentMaster[]>([]);
   const [loading, setLoading] = useState(false);
   
-  const [selectedYear, setSelectedYear] = useState("E1");
-  const [selectedSection, setSelectedSection] = useState("A");
+  const [availableYears, setAvailableYears] = useState<string[]>([]);
+  const [availableSections, setAvailableSections] = useState<string[]>([]);
+  
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedSection, setSelectedSection] = useState("");
 
-  const engineeringYears = ["E1", "E2", "E3", "E4"];
-  const sections = ["A", "B", "C", "D", "E", "F"];
+  // Fetch unique years and sections on mount
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      const { data, error } = await supabase
+        .from("students_master")
+        .select("engineering_year, section");
+        
+      if (!error && data) {
+        const years = Array.from(new Set(data.map(d => d.engineering_year))).sort();
+        const secs = Array.from(new Set(data.map(d => d.section))).sort();
+        
+        setAvailableYears(years);
+        setAvailableSections(secs);
+        
+        if (years.length > 0) setSelectedYear(years[0]);
+        if (secs.length > 0) setSelectedSection(secs[0]);
+      }
+    };
+    fetchMetadata();
+  }, []);
 
   const fetchRoster = async () => {
+    if (!selectedYear || !selectedSection) return;
+    
     setLoading(true);
     const { data, error } = await supabase
       .from("students_master")
@@ -53,7 +76,7 @@ const AdminRosterView: React.FC = () => {
             onChange={(e) => setSelectedYear(e.target.value)}
             className="w-40 border border-slate-300 rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"
           >
-            {engineeringYears.map(y => <option key={y} value={y}>{y}</option>)}
+            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         <div>
@@ -63,7 +86,7 @@ const AdminRosterView: React.FC = () => {
             onChange={(e) => setSelectedSection(e.target.value)}
             className="w-40 border border-slate-300 rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"
           >
-            {sections.map(s => <option key={s} value={s}>{s}</option>)}
+            {availableSections.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
       </div>
