@@ -53,7 +53,7 @@ const App: React.FC = () => {
 
   // Bootstrap auth state on app load
   useEffect(() => {
-    const { setUser, setLoading, setFacultySubjects, setStudentProfile, setStudentSubjects } = useAuthStore.getState();
+    const { setUser, setLoading } = useAuthStore.getState();
     
     // Check initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
