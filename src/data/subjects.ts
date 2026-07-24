@@ -49,6 +49,12 @@ export const subjects: Subject[] = [
     code: "23CS1188",
   },
   {
+    id: "add-lab",
+    name: "Application Development Lab",
+    shortName: "ADD Lab",
+    code: "23CS2183",
+  },
+  {
     id: "pds-lab",
     name: "Programming and Data Structures Lab",
     shortName: "PDS Lab",

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, Navigate } from "react-router-dom";
 import { subjects } from "../data/subjects";
 import { getLabManuals, getFacultyForSubjectSection } from "../supabase/db";
 import type { LabManual } from "../supabase/db";
@@ -20,14 +20,19 @@ import {
 
 const SubjectPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const subject = subjects.find((s) => s.id === id);
+  const subject = subjects.find((s) => s.id === id || s.code.toLowerCase() === id?.toLowerCase());
+  const { studentProfile } = useAuthStore();
+
+  if (studentProfile && subject) {
+    return <Navigate to={`/student/subject/${subject.code}`} replace />;
+  }
+
   const [manuals, setManuals] = useState<LabManual[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   const [previewManualId, setPreviewManualId] = useState<string | null>(null);
   
-  const { studentProfile } = useAuthStore();
   const [facultyMapping, setFacultyMapping] = useState<{ facultyName: string | null, coFacultyName: string | null } | null>(null);
 
   const fetchManualsAndFaculty = async () => {

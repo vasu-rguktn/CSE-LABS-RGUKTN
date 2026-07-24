@@ -84,8 +84,7 @@ export const uploadStudentSubmission = async (
   weekNumber: number,
   rollNumber: string
 ): Promise<{ path: string; url: string }> => {
-  const fileExt = file.name.split('.').pop();
-  const filePath = `${subjectCode}/week-${weekNumber}/${rollNumber.toLowerCase()}.${fileExt}`;
+  const filePath = `${subjectCode}/Week ${weekNumber}/${rollNumber.toUpperCase()}_${file.name}`;
 
   const { error: uploadError } = await supabase.storage
     .from('student-submissions')

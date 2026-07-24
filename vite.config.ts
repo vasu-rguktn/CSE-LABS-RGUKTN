@@ -6,6 +6,15 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   base: "/CSE-LABS-RGUKTN/",
+  server: {
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      protocol: "ws",
+      host: "localhost",
+      port: 5173,
+    },
+  },
   build: {
     outDir: "dist",
     sourcemap: false,

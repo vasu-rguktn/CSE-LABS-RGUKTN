@@ -16,7 +16,6 @@ class SupabaseTimestamp {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface FacultySubject {
   uid: string;
   email: string;
@@ -37,9 +36,12 @@ export interface LabManual {
   uploadedAt: SupabaseTimestamp | null;
   updatedAt: SupabaseTimestamp | null;
   version: number;
+  releaseDate?: SupabaseTimestamp | null;
+  dueDate?: SupabaseTimestamp | null;
+  allowResubmission?: boolean;
+  allowedFileTypes?: string[];
+  maxFileSizeMb?: number;
 }
-
-// ─── Faculty Subjects ─────────────────────────────────────────────────────────
 
 export const getFacultySubjects = async (
   uid: string
@@ -104,6 +106,11 @@ export const getLabManuals = async (
     uploadedAt: data.uploaded_at ? new SupabaseTimestamp(data.uploaded_at) : null,
     updatedAt: data.updated_at ? new SupabaseTimestamp(data.updated_at) : null,
     version: data.version,
+    releaseDate: data.release_date ? new SupabaseTimestamp(data.release_date) : null,
+    dueDate: data.due_date ? new SupabaseTimestamp(data.due_date) : null,
+    allowResubmission: data.allow_resubmission,
+    allowedFileTypes: data.allowed_file_types,
+    maxFileSizeMb: data.max_file_size_mb,
   }));
 
   return mapped.sort((a, b) => {
@@ -122,7 +129,12 @@ export const saveLabManual = async (
   fileUrl: string,
   fileName: string,
   uploadedBy: string,
-  currentVersion: number
+  currentVersion: number,
+  releaseDate?: string | null,
+  dueDate?: string | null,
+  allowResubmission?: boolean,
+  allowedFileTypes?: string[],
+  maxFileSizeMb?: number
 ): Promise<void> => {
   const isValid = subjects.some(s => s.id === subjectId);
   if (!isValid) throw new Error(`Invalid subject ID: ${subjectId}`);
@@ -141,6 +153,11 @@ export const saveLabManual = async (
         uploaded_by: uploadedBy,
         updated_at: new Date().toISOString(),
         version: currentVersion + 1,
+        release_date: releaseDate || new Date().toISOString(),
+        due_date: dueDate || null,
+        allow_resubmission: allowResubmission !== undefined ? allowResubmission : true,
+        allowed_file_types: allowedFileTypes || ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.zip'],
+        max_file_size_mb: maxFileSizeMb !== undefined ? maxFileSizeMb : 20,
       },
       { onConflict: "subject_id, manual_type, week_number" }
     );
@@ -267,11 +284,17 @@ export const getStudentMasterByEmail = async (email: string): Promise<StudentMas
 };
 
 export const getStudentSubjects = async (engineeringYear: string, semester: string, branch: string): Promise<SubjectMaster[]> => {
+  const semVariants = Array.from(new Set([
+    semester,
+    semester.replace("-", ""),
+    semester.includes("-") ? semester : semester.replace(/Sem(\d+)/i, "Sem-$1"),
+  ]));
+
   const { data, error } = await supabase
     .from('subjects_master')
     .select('*')
     .eq('engineering_year', engineeringYear)
-    .eq('semester', semester)
+    .in('semester', semVariants)
     .eq('branch', branch);
 
   if (error) throw error;
@@ -286,7 +309,6 @@ export const getStudentSubjects = async (engineeringYear: string, semester: stri
     isLab: s.is_lab
   }));
 };
-
 export interface StudentSubmission {
   id: string;
   student_id: string;
@@ -298,6 +320,17 @@ export interface StudentSubmission {
   file_size_bytes: number;
   status: string;
   submitted_at: string;
+  task_id?: string | null;
+  subject_id?: string;
+  faculty_id?: string | null;
+  student_name?: string;
+  roll_number?: string;
+  branch?: string;
+  section?: string;
+  week?: number;
+  is_late?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SubjectWeekDeadline {
@@ -331,9 +364,25 @@ export const upsertStudentSubmission = async (submission: Omit<StudentSubmission
   const { error } = await supabase
     .from('student_submissions')
     .upsert({
-      ...submission,
+      student_id: submission.student_id,
+      subject_code: submission.subject_code,
+      week_number: submission.week_number,
+      storage_path: submission.storage_path,
+      file_url: submission.file_url,
+      file_name: submission.file_name,
+      file_size_bytes: submission.file_size_bytes,
       status: 'submitted',
-      submitted_at: new Date().toISOString()
+      submitted_at: new Date().toISOString(),
+      task_id: submission.task_id,
+      subject_id: submission.subject_id || submission.subject_code,
+      faculty_id: submission.faculty_id,
+      student_name: submission.student_name,
+      roll_number: submission.roll_number,
+      branch: submission.branch,
+      section: submission.section,
+      week: submission.week || submission.week_number,
+      is_late: submission.is_late ?? false,
+      updated_at: new Date().toISOString()
     }, { onConflict: 'student_id,subject_code,week_number' });
 
   if (error) throw error;
@@ -461,6 +510,27 @@ export const getSectionsForFacultyEmail = async (email: string): Promise<Faculty
 };
 
 
+
+export const getStudentsForSection = async (batchYear: string, branch: string, section: string): Promise<StudentMaster[]> => {
+  const { data, error } = await supabase
+    .from('students_master')
+    .select('*')
+    .eq('engineering_year', batchYear)
+    .eq('branch', branch)
+    .eq('section', section);
+
+  if (error) throw error;
+  return (data || []).map(row => ({
+    id: row.id,
+    rollNumber: row.roll_number,
+    name: row.name,
+    branch: row.branch,
+    section: row.section,
+    engineeringYear: row.engineering_year,
+    semester: row.semester,
+    emailId: row.email_id
+  }));
+};
 
 // --- Phase 3: Admin & Compliance ----------------------------------------------
 
