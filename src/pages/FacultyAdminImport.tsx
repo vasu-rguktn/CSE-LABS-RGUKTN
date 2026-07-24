@@ -54,12 +54,30 @@ const FacultyAdminImport: React.FC = () => {
           isLab = true;
         }
 
+        const normalizeSemester = (sem: string) => {
+          let s = sem.replace(/\s+/g, '').toLowerCase();
+          if (s === '1' || s === 's1' || s === 'sem1' || s === 'sem-1' || s === 'semester1') return 'Sem-1';
+          if (s === '2' || s === 's2' || s === 'sem2' || s === 'sem-2' || s === 'semester2') return 'Sem-2';
+          return sem;
+        };
+
+        const normalizeYear = (year: string) => {
+           let y = year.replace(/\s+/g, '').toUpperCase();
+           if (y === 'E1' || y === 'E-1' || y === '1') return 'E1';
+           if (y === 'E2' || y === 'E-2' || y === '2') return 'E2';
+           if (y === 'E3' || y === 'E-3' || y === '3') return 'E3';
+           if (y === 'E4' || y === 'E-4' || y === '4') return 'E4';
+           if (y === 'P1' || y === 'PUC1' || y === 'P-1') return 'P1';
+           if (y === 'P2' || y === 'PUC2' || y === 'P-2') return 'P2';
+           return year.toUpperCase();
+        };
+
         subjects.push({
           courseCode: row["Course Code"].toString().trim(),
           subjectName: row["Subject Name"].toString().trim(),
-          engineeringYear: row["Engineering Year"].toString().trim(),
-          semester: row["Semester"].toString().trim(),
-          branch: row["Branch"].toString().trim(),
+          engineeringYear: normalizeYear(row["Engineering Year"].toString().trim()),
+          semester: normalizeSemester(row["Semester"].toString().trim()),
+          branch: row["Branch"].toString().trim().toUpperCase(),
           credits: parseInt(row["Credits"]) || 0,
           isLab
         });

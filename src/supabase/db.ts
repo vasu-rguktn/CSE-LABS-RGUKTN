@@ -232,23 +232,10 @@ export const upsertStudentsMaster = async (students: StudentMaster[]) => {
 };
 
 export const getStudentMasterByEmail = async (email: string): Promise<StudentMaster | null> => {
-  if (email.toLowerCase() === 'n220615@rguktn.ac.in') {
-    return {
-      id: 'mock-uuid-for-test-features',
-      rollNumber: 'N220615',
-      name: 'N220615 GANTIMALLA TEST',
-      branch: 'CSE',
-      section: 'A',
-      engineeringYear: 'E3',
-      semester: 'Sem1',
-      emailId: 'n220615@rguktn.ac.in'
-    };
-  }
-
   const { data, error } = await supabase
     .from('students_master')
     .select('*')
-    .eq('email_id', email.toLowerCase())
+    .eq('email_id', email.trim().toLowerCase())
     .maybeSingle();
 
   if (error) throw error;
@@ -270,12 +257,37 @@ export const getStudentSubjects = async (engineeringYear: string, semester: stri
   const { data, error } = await supabase
     .from('subjects_master')
     .select('*')
-    .eq('engineering_year', engineeringYear)
-    .eq('semester', semester)
-    .eq('branch', branch);
+    .ilike('branch', branch);
 
   if (error) throw error;
-  return (data || []).map(s => ({
+
+  const normalizeSemester = (sem: string) => {
+    let s = (sem || '').replace(/\s+/g, '').toLowerCase();
+    if (s === '1' || s === 's1' || s === 'sem1' || s === 'sem-1' || s === 'semester1') return 'Sem-1';
+    if (s === '2' || s === 's2' || s === 'sem2' || s === 'sem-2' || s === 'semester2') return 'Sem-2';
+    return sem;
+  };
+
+  const normalizeYear = (year: string) => {
+     let y = (year || '').replace(/\s+/g, '').toUpperCase();
+     if (y === 'E1' || y === 'E-1' || y === '1') return 'E1';
+     if (y === 'E2' || y === 'E-2' || y === '2') return 'E2';
+     if (y === 'E3' || y === 'E-3' || y === '3') return 'E3';
+     if (y === 'E4' || y === 'E-4' || y === '4') return 'E4';
+     if (y === 'P1' || y === 'PUC1' || y === 'P-1') return 'P1';
+     if (y === 'P2' || y === 'PUC2' || y === 'P-2') return 'P2';
+     return (year || '').toUpperCase();
+  };
+
+  const targetYear = normalizeYear(engineeringYear);
+  const targetSem = normalizeSemester(semester);
+
+  const filtered = (data || []).filter(s => 
+    normalizeYear(s.engineering_year) === targetYear && 
+    normalizeSemester(s.semester) === targetSem
+  );
+
+  return filtered.map(s => ({
     id: s.id,
     courseCode: s.course_code,
     subjectName: s.subject_name,
