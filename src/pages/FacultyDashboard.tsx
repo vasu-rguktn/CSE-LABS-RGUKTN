@@ -7,7 +7,7 @@ import type { LabManual, FacultySubjectSection } from "../supabase/db";
 import { BookOpen, Plus, FileText, Calendar, AlertCircle } from "lucide-react";
 
 const FacultyDashboard: React.FC = () => {
-  const { user, facultySubjects } = useAuthStore();
+  const { user, facultySubjects, isAdmin } = useAuthStore();
   const [manualsMap, setManualsMap] = useState<Record<string, LabManual[]>>({});
   const [complianceStats, setComplianceStats] = useState<Record<string, { totalEnrolled: number, totalSubmitted: number, hasMissing: boolean }>>({});
   const [mappedSections, setMappedSections] = useState<FacultySubjectSection[]>([]);
@@ -114,12 +114,22 @@ const FacultyDashboard: React.FC = () => {
                 </h1>
               </div>
             </div>
-            <Link
-              to="/faculty/select-subject"
-              className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-100 transition-colors"
-            >
-              <Plus className="w-4 h-4" /> Assign Another Subject
-            </Link>
+            <div className="flex items-center gap-3">
+              {isAdmin && (
+                <Link
+                  to="/admin/allocations"
+                  className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-100 transition-colors"
+                >
+                  <BookOpen className="w-4 h-4" /> Allocations & BoS Data
+                </Link>
+              )}
+              <Link
+                to="/faculty/select-subject"
+                className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-100 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Assign Another Subject
+              </Link>
+            </div>
           </div>
         </div>
       </div>

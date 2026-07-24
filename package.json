@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
+    "dotenv": "^17.4.2",
     "fuse.js": "^7.0.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.469.0",
@@ -17,6 +18,7 @@
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1",
     "react-router-dom": "^6.30.4",
+    "ws": "^8.21.1",
     "xlsx": "^0.18.5",
     "zustand": "^4.5.5"
   },

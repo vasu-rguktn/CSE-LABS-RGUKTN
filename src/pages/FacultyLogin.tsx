@@ -31,7 +31,11 @@ const FacultyLogin: React.FC = () => {
     try {
       const fs = await getFacultySubjects(signedInUser.uid);
       setFacultySubjects(fs);
-      if (fs.length > 0) {
+      
+      const { getSectionsForFacultyEmail } = await import("../supabase/db");
+      const mapped = await getSectionsForFacultyEmail(signedInUser.email!);
+
+      if (fs.length > 0 || mapped.length > 0) {
         navigate("/faculty/dashboard", { replace: true });
       } else {
         navigate("/faculty/select-subject", { replace: true });
@@ -92,6 +96,62 @@ const FacultyLogin: React.FC = () => {
             )}
             {signingIn ? "Signing in…" : "Continue with Google"}
           </button>
+
+          {/* Dev Login Buttons - ONLY FOR DEVELOPMENT TESTING */}
+          {import.meta.env.DEV && (
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={async () => {
+                  useAuthStore.getState().setIsAdmin(false);
+                  const mockUser = { id: 'dev-uday', email: 'uday@rguktn.ac.in', user_metadata: { full_name: 'Uday Kumar' } };
+                  setUser(mockUser as any);
+                  try {
+                    const fs = await getFacultySubjects(mockUser.id);
+                    setFacultySubjects(fs);
+                    
+                    const { getSectionsForFacultyEmail } = await import("../supabase/db");
+                    const mapped = await getSectionsForFacultyEmail(mockUser.email);
+
+                    if (fs.length > 0 || mapped.length > 0) {
+                      navigate("/faculty/dashboard", { replace: true });
+                    } else {
+                      navigate("/faculty/select-subject", { replace: true });
+                    }
+                  } catch {
+                    toast.error("Dev login failed");
+                  }
+                }}
+                className="w-1/2 bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-bold py-2 rounded-xl transition-colors border border-amber-300"
+              >
+                DEV LOGIN: Uday
+              </button>
+              <button
+                onClick={async () => {
+                  useAuthStore.getState().setIsAdmin(false);
+                  const mockUser = { id: 'dev-kalavathi', email: 'kalavathiyarrapati111@rguktn.ac.in', user_metadata: { full_name: 'Kalavathi' } };
+                  setUser(mockUser as any);
+                  try {
+                    const fs = await getFacultySubjects(mockUser.id);
+                    setFacultySubjects(fs);
+                    
+                    const { getSectionsForFacultyEmail } = await import("../supabase/db");
+                    const mapped = await getSectionsForFacultyEmail(mockUser.email);
+
+                    if (fs.length > 0 || mapped.length > 0) {
+                      navigate("/faculty/dashboard", { replace: true });
+                    } else {
+                      navigate("/faculty/select-subject", { replace: true });
+                    }
+                  } catch {
+                    toast.error("Dev login failed");
+                  }
+                }}
+                className="w-1/2 bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-bold py-2 rounded-xl transition-colors border border-amber-300"
+              >
+                DEV LOGIN: Kalavathi
+              </button>
+            </div>
+          )}
 
           {/* Restriction notice */}
           <div className="mt-6 flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">

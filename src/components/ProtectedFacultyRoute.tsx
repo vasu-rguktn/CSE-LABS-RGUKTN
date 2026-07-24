@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { Loader2 } from "lucide-react";
+import { isStudentEmail } from "../supabase/auth";
 
 interface ProtectedFacultyRouteProps {
   children: React.ReactNode;
@@ -25,6 +26,10 @@ const ProtectedFacultyRoute: React.FC<ProtectedFacultyRouteProps> = ({
 
   if (!user) {
     return <Navigate to="/faculty/login" replace />;
+  }
+
+  if (isStudentEmail(user.email)) {
+    return <Navigate to="/student/dashboard" replace />;
   }
 
   if (isAdmin && !selectedRole) {

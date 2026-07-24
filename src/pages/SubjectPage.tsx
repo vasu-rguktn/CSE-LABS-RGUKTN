@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { subjects } from "../data/subjects";
-import { getLabManuals, getFacultyForSubjectSection } from "../supabase/db";
+import { getLabManuals, getFacultyForSubjectSection, getAllFacultiesForSubject } from "../supabase/db";
 import type { LabManual } from "../supabase/db";
 import PdfViewer from "../components/PdfViewer";
 import { useAuthStore } from "../store/authStore";
@@ -28,7 +28,7 @@ const SubjectPage: React.FC = () => {
   const [previewManualId, setPreviewManualId] = useState<string | null>(null);
   
   const { studentProfile } = useAuthStore();
-  const [facultyMapping, setFacultyMapping] = useState<{ facultyName: string | null, coFacultyName: string | null } | null>(null);
+  const [facultyMapping, setFacultyMapping] = useState<{ facultyName: string | null, coFacultyName: string | null, facultyEmail: string | null } | null>(null);
 
   const fetchManualsAndFaculty = async () => {
     if (!id || !subject) return;
@@ -38,7 +38,7 @@ const SubjectPage: React.FC = () => {
       const data = await getLabManuals(id);
       setManuals(data);
       
-      // Fetch faculty mapping for this specific student's section
+      // Fetch faculty mapping for this specific student's section, or all faculties if admin
       if (studentProfile && subject.code) {
         const mapping = await getFacultyForSubjectSection(
           subject.code,
@@ -49,7 +49,18 @@ const SubjectPage: React.FC = () => {
         if (mapping) {
           setFacultyMapping({
             facultyName: mapping.facultyName,
-            coFacultyName: mapping.coFacultyName
+            coFacultyName: mapping.coFacultyName,
+            facultyEmail: mapping.facultyEmail
+          });
+        }
+      } else if (!studentProfile && subject.code) {
+        // Fetch all faculties across all sections for admin view
+        const mapping = await getAllFacultiesForSubject(subject.code);
+        if (mapping) {
+          setFacultyMapping({
+            facultyName: mapping.facultyName,
+            coFacultyName: null,
+            facultyEmail: mapping.facultyEmail
           });
         }
       }
@@ -143,16 +154,26 @@ const SubjectPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-              <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1">
-                <User className="w-4 h-4 text-blue-600" /> Faculty
+            <div className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-200 min-w-[240px]">
+              <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
+                <User className="w-4 h-4 text-blue-600" /> Assigned Faculty
               </div>
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-slate-600 space-y-3">
                 {facultyMapping ? (
-                  <>
-                    {facultyMapping.facultyName || "Not assigned"}
-                    {facultyMapping.coFacultyName && ` & ${facultyMapping.coFacultyName}`}
-                  </>
+                  (() => {
+                    const names = (facultyMapping.facultyName || "").split(/[,&]+/).map(n => n.trim()).filter(Boolean);
+                    const emails = (facultyMapping.facultyEmail || "").split(/[,&\n]+/).map(e => e.trim()).filter(Boolean);
+                    
+                    if (names.length === 0) return <div>Faculty not assigned properly</div>;
+                    
+                    return names.map((name, idx) => (
+                      <div key={idx}>
+                        <div className="font-semibold text-slate-800">Faculty {idx + 1}</div>
+                        <div className="mb-0.5">{name.replace(/^-\s*/, '')}</div>
+                        {emails[idx] && <a href={`mailto:${emails[idx]}`} className="text-blue-600 hover:underline text-xs block">{emails[idx]}</a>}
+                      </div>
+                    ));
+                  })()
                 ) : (
                   "Faculty not yet assigned"
                 )}

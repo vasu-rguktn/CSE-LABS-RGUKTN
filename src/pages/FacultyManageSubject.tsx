@@ -5,6 +5,7 @@ import { subjects } from "../data/subjects";
 import { getLabManuals, saveLabManual, deleteLabManual, getSubmissionsForFaculty } from "../supabase/db";
 import type { LabManual } from "../supabase/db";
 import { uploadLabManual, deleteLabManualFile, MAX_FILE_SIZE_MB } from "../supabase/storage";
+import JSZip from "jszip";
 import PdfViewer from "../components/PdfViewer";
 import toast from "react-hot-toast";
 import {
@@ -60,6 +61,7 @@ const FacultyManageSubject: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"manuals" | "submissions">("manuals");
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [isDownloadingBulk, setIsDownloadingBulk] = useState(false);
 
   const fetchManuals = async () => {
     setLoadingManuals(true);
@@ -176,6 +178,55 @@ const FacultyManageSubject: React.FC = () => {
     }
     setUploadTitle(manual.title || "");
     setUploadDialogOpen(true);
+  };
+
+  const handleBulkDownload = async () => {
+    if (submissions.length === 0) return;
+    
+    setIsDownloadingBulk(true);
+    const toastId = toast.loading("Bundling submissions...");
+    
+    try {
+      const zip = new JSZip();
+      
+      // We will create folders for each week and section
+      // e.g. Week 1 / CSE1 / 19KQ1A0501.zip
+      for (const sub of submissions) {
+        const url = sub.file_url;
+        const weekFolder = `Week ${sub.week_number}`;
+        const sectionFolder = sub.students_master.section;
+        const fileName = `${sub.students_master.roll_number}.zip`;
+        
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error("Failed to fetch file");
+          const blob = await response.blob();
+          
+          zip.folder(weekFolder)?.folder(sectionFolder)?.file(fileName, blob);
+        } catch (e) {
+          console.error(`Failed to download ${fileName}`, e);
+          // We can optionally notify about failed files
+        }
+      }
+      
+      const content = await zip.generateAsync({ type: "blob" });
+      
+      // Create a download link
+      const blobUrl = URL.createObjectURL(content);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `${subject?.code || "Subject"}_All_Submissions.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+      
+      toast.success("Download started!", { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create bundle", { id: toastId });
+    } finally {
+      setIsDownloadingBulk(false);
+    }
   };
 
   return (
@@ -513,8 +564,25 @@ const FacultyManageSubject: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            <h2 className="text-lg font-semibold text-slate-800">Student Submissions</h2>
-            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold text-slate-800">Student Submissions</h2>
+              
+              {submissions.length > 0 && (
+                <button
+                  onClick={handleBulkDownload}
+                  disabled={isDownloadingBulk}
+                  className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-xl shadow-sm transition-all"
+                >
+                  {isDownloadingBulk ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  {isDownloadingBulk ? "Creating Bundle..." : "Bulk Download (All)"}
+                </button>
+              )}
+            </div>
+
             {loadingSubmissions ? (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex items-center gap-3">
                 <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />

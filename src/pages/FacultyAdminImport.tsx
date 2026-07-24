@@ -3,19 +3,21 @@ import { useAuthStore } from "../store/authStore";
 import { Navigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
-import { upsertSubjectsMaster, upsertStudentsMaster, upsertFacultySubjectSections, deleteAllStudentsMaster } from "../supabase/db";
+import { upsertSubjectsMaster, upsertStudentsMaster, upsertFacultySubjectSections, deleteAllStudentsMaster, deleteAllSubjectsMaster, deleteAllFacultyMappings, getAllSubjectsMaster } from "../supabase/db";
 import type { SubjectMaster, StudentMaster, FacultySubjectSection } from "../supabase/db";
 import { Upload, FileSpreadsheet, AlertTriangle, Database, Users, Trash2 } from "lucide-react";
 
 const FacultyAdminImport: React.FC = () => {
   const { user } = useAuthStore();
   const [importingBoS, setImportingBoS] = useState(false);
+  const [deletingBoS, setDeletingBoS] = useState(false);
   const [importingStudents, setImportingStudents] = useState(false);
   const [deletingStudents, setDeletingStudents] = useState(false);
   const [globalSemester, setGlobalSemester] = useState("Sem-1");
   
   // Faculty Mapping States
   const [importingFacultyMapping, setImportingFacultyMapping] = useState(false);
+  const [deletingFacultyMapping, setDeletingFacultyMapping] = useState(false);
 
   // If not a faculty (email restriction is already on protected route), we might want to restrict this to admins later
   if (!user) {
@@ -98,6 +100,36 @@ const FacultyAdminImport: React.FC = () => {
     }
   };
 
+  const handleDeleteAllBoS = async () => {
+    if (!window.confirm("Are you sure you want to delete ALL BoS Curriculum data? This action cannot be undone.")) return;
+    
+    setDeletingBoS(true);
+    const toastId = toast.loading("Deleting all BoS data...");
+    try {
+      await deleteAllSubjectsMaster();
+      toast.success("Successfully deleted all BoS data.", { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete BoS data.", { id: toastId });
+    } finally {
+      setDeletingBoS(false);
+    }
+  };
+
+  const handleDeleteAllFacultyMappings = async () => {
+    if (!window.confirm("Are you sure you want to delete ALL Faculty Assignments? This action cannot be undone.")) return;
+    
+    setDeletingFacultyMapping(true);
+    const toastId = toast.loading("Deleting all faculty assignments...");
+    try {
+      await deleteAllFacultyMappings();
+      toast.success("Successfully deleted all faculty assignments.", { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete faculty assignments.", { id: toastId });
+    } finally {
+      setDeletingFacultyMapping(false);
+    }
+  };
+
   // --- Student Master Import ---
   const handleStudentFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -135,11 +167,11 @@ const FacultyAdminImport: React.FC = () => {
         let parsedBranch = row["Branch"] || "Unknown";
         let parsedSection = rawSection;
         
-        const secMatch = rawSection.match(/^(E[1-4])([A-Z&]+)(\d+)$/i);
+        const secMatch = rawSection.match(/^(E[1-4]|P[1-2])\s*([A-Z&]+)\s*(\d+)$/i);
         if (secMatch) {
           engYear = secMatch[1].toUpperCase();
           parsedBranch = secMatch[2].toUpperCase();
-          parsedSection = secMatch[0].toUpperCase(); // Keep full section string like E1CSE1
+          parsedSection = secMatch[0].replace(/\s+/g, '').toUpperCase(); // Keep full section string like E1CSE1
         }
 
         students.push({
@@ -191,6 +223,9 @@ const FacultyAdminImport: React.FC = () => {
     const toastId = toast.loading(`Processing Faculty Mapping...`);
 
     try {
+      // Pre-fetch subjects to aid in deriving section details if only numbers are provided
+      const subjectsMaster = await getAllSubjectsMaster();
+
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const sheetName = workbook.SheetNames[0];
@@ -201,9 +236,18 @@ const FacultyAdminImport: React.FC = () => {
 
       for (const row of jsonData) {
         const courseCode = row["Course Code"]?.toString().trim();
-        const sectionsRaw = row["Sections"]?.toString().trim();
-        const facultyRaw = row["Faculty Name(s)"]?.toString().trim() || "";
-        const facultyEmail = row["faculty email"]?.toString().trim() || null;
+        let sectionsRaw = row["Sections"]?.toString().trim();
+        let facultyRaw = row["Faculty Name(s)"]?.toString().trim() || row["Faculty"]?.toString().trim() || "";
+        const facultyEmail = (row["faculty email"] || row["Faculty Email"] || row["Faculty Emails"] || row["Faculty Emails:"])?.toString().trim() || null;
+
+        // Fallback: Sometimes sections are mistakenly put inside the Faculty column (e.g., "1 Mrs.Y.Kalavathi")
+        if (!sectionsRaw && facultyRaw) {
+          const match = facultyRaw.match(/^(\d+(?:\s*,\s*\d+)*)\s+(.*)$/);
+          if (match) {
+            sectionsRaw = match[1];
+            facultyRaw = match[2];
+          }
+        }
 
         if (!courseCode || !sectionsRaw) {
           continue; // Skip invalid
@@ -212,40 +256,38 @@ const FacultyAdminImport: React.FC = () => {
         // Parse sections: split by comma
         const sections = sectionsRaw.split(',').map((s: string) => s.trim()).filter(Boolean);
 
+        // Find matching subject to derive missing details if necessary
+        const matchedSubject = subjectsMaster.find(s => s.courseCode === courseCode);
+
         // Parse faculty names & notes
         let notes = null;
-        let facultyName = null;
-        let coFacultyName = null;
-        
-        let cleanedFaculty = facultyRaw;
+        let facultyName = facultyRaw;
         
         // Extract parenthetical notes (e.g. "Name (Note)")
         const noteMatch = facultyRaw.match(/\((.*?)\)/);
         if (noteMatch) {
           notes = noteMatch[1].trim();
-          cleanedFaculty = facultyRaw.replace(/\(.*?\)/g, '').trim();
-        }
-
-        if (cleanedFaculty) {
-          const facultyParts = cleanedFaculty.split('&').map((f: string) => f.trim());
-          facultyName = facultyParts[0] || null;
-          if (facultyParts.length > 1) {
-            coFacultyName = facultyParts[1] || null;
-          }
+          facultyName = facultyRaw.replace(/\(.*?\)/g, '').trim();
         }
 
         // For each section, add a mapping row
         for (const sec of sections) {
-          // Parse E1CSE1 -> E1, CSE, 1
           let batchYear = "Unknown";
           let branch = "Unknown";
           let parsedSection = sec;
           
-          const secMatch = sec.match(/^(E[1-4])([A-Z&]+)(\d+)$/i);
+          const secMatch = sec.match(/^(E[1-4]|P[1-2])\s*([A-Z&]+)\s*(\d+)$/i);
           if (secMatch) {
             batchYear = secMatch[1].toUpperCase();
             branch = secMatch[2].toUpperCase();
-            parsedSection = secMatch[0].toUpperCase();
+            parsedSection = secMatch[0].replace(/\s+/g, '').toUpperCase();
+          } else if (/^\d+$/.test(sec)) {
+            // It's just a number (e.g. "1"). Derive batch and branch from subject master
+            if (matchedSubject) {
+              batchYear = matchedSubject.engineeringYear;
+              branch = matchedSubject.branch;
+              parsedSection = `${batchYear}${branch}${sec}`.replace(/\s+/g, '').toUpperCase();
+            }
           }
           
           mappings.push({
@@ -253,9 +295,9 @@ const FacultyAdminImport: React.FC = () => {
             batchYear,
             branch,
             section: parsedSection,
-            facultyName,
-            facultyEmail: facultyEmail, 
-            coFacultyName,
+            facultyName: facultyName || null,
+            facultyEmail: facultyEmail || null, 
+            coFacultyName: null,
             notes
           });
         }
@@ -307,12 +349,12 @@ const FacultyAdminImport: React.FC = () => {
               Required columns: <code>Course Code, Subject Name, Engineering Year, Semester, Branch, Credits, L-T-P</code>.
             </p>
             
-            <div className="relative">
+            <div className="relative mb-3">
               <input 
                 type="file" 
                 accept=".xlsx, .xls, .csv" 
                 onChange={handleBoSFile}
-                disabled={importingBoS}
+                disabled={importingBoS || deletingBoS}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               />
               <div className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${
@@ -322,6 +364,15 @@ const FacultyAdminImport: React.FC = () => {
                 {importingBoS ? "Processing..." : "Upload BoS Excel"}
               </div>
             </div>
+
+            <button
+              onClick={handleDeleteAllBoS}
+              disabled={deletingBoS || importingBoS}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-auto"
+            >
+              <Trash2 className="w-4 h-4" />
+              {deletingBoS ? "Resetting Data..." : "Reset BoS Data"}
+            </button>
           </div>
 
           {/* Student Master Import Card */}
@@ -386,12 +437,12 @@ const FacultyAdminImport: React.FC = () => {
               Required columns: <code>Course Code, Subject, Sections, Faculty Name(s), faculty email</code>.
             </p>
             
-            <div className="relative">
+            <div className="relative mb-3">
               <input 
                 type="file" 
                 accept=".xlsx, .xls, .csv" 
                 onChange={handleFacultyMappingFile}
-                disabled={importingFacultyMapping}
+                disabled={importingFacultyMapping || deletingFacultyMapping}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               />
               <div className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${
@@ -401,6 +452,15 @@ const FacultyAdminImport: React.FC = () => {
                 {importingFacultyMapping ? "Processing..." : "Upload Mapping Excel"}
               </div>
             </div>
+
+            <button
+              onClick={handleDeleteAllFacultyMappings}
+              disabled={deletingFacultyMapping || importingFacultyMapping}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-auto"
+            >
+              <Trash2 className="w-4 h-4" />
+              {deletingFacultyMapping ? "Resetting Data..." : "Reset Assignments Data"}
+            </button>
           </div>
 
         </div>

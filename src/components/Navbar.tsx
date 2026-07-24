@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { signOut, isStudentEmail } from "../supabase/auth";
 import toast from "react-hot-toast";
@@ -8,6 +8,7 @@ import { GraduationCap, LogOut, User, Menu, X, Database } from "lucide-react";
 const Navbar: React.FC = () => {
   const { user, isAdmin, selectedRole, setSelectedRole } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -75,10 +76,18 @@ const Navbar: React.FC = () => {
                   <Link
                     to="/admin/roster"
                     className="flex items-center gap-1 text-sm font-medium text-indigo-700 hover:text-indigo-800 transition-colors px-3 py-2 rounded-lg hover:bg-indigo-50"
-                    title="Admin Roster"
+                    title="Class Roster"
                   >
                     <User className="w-4 h-4" />
                     <span className="hidden md:inline">Class Roster</span>
+                  </Link>
+                  <Link
+                    to="/admin/allocations"
+                    className="flex items-center gap-1 text-sm font-medium text-indigo-700 hover:text-indigo-800 transition-colors px-3 py-2 rounded-lg hover:bg-indigo-50"
+                    title="Admin Allocations"
+                  >
+                    <User className="w-4 h-4" />
+                    <span className="hidden md:inline">Allocations & BoS</span>
                   </Link>
                 </>
               )}
@@ -125,23 +134,27 @@ const Navbar: React.FC = () => {
               </button>
             </>
           ) : (
-            <div className="flex items-center gap-2">
-              <Link
-                to="/student/login"
-                className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all"
-              >
-                <User className="w-4 h-4" />
-                Student Login
-              </Link>
-              <Link
-                to="/faculty/login"
-                className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all"
-                id="faculty-login-btn"
-              >
-                <User className="w-4 h-4" />
-                Faculty Login
-              </Link>
-            </div>
+              <div className="flex items-center gap-2">
+                {location.pathname !== "/" && (
+                  <>
+                    <Link
+                      to="/student/login"
+                      className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all"
+                    >
+                      <User className="w-4 h-4" />
+                      Student Login
+                    </Link>
+                    <Link
+                      to="/faculty/login"
+                      className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all"
+                      id="faculty-login-btn"
+                    >
+                      <User className="w-4 h-4" />
+                      Faculty Login
+                    </Link>
+                  </>
+                )}
+              </div>
           )}
         </div>
 
@@ -182,6 +195,14 @@ const Navbar: React.FC = () => {
                   >
                     <User className="w-4 h-4" />
                     Class Roster
+                  </Link>
+                  <Link
+                    to="/admin/allocations"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 w-full text-sm font-medium text-indigo-700 py-2 px-3 rounded-lg hover:bg-indigo-50 transition-colors"
+                  >
+                    <User className="w-4 h-4" />
+                    Allocations & BoS
                   </Link>
                 </>
               )}
@@ -231,24 +252,28 @@ const Navbar: React.FC = () => {
               </button>
             </>
           ) : (
-            <div className="flex flex-col gap-2">
-              <Link
-                to="/student/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold py-3 px-5 rounded-xl transition-all"
-              >
-                <User className="w-4 h-4" />
-                Student Login
-              </Link>
-              <Link
-                to="/faculty/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full bg-blue-700 text-white text-sm font-semibold py-3 px-5 rounded-xl"
-              >
-                <User className="w-4 h-4" />
-                Faculty Login
-              </Link>
-            </div>
+              <div className="flex flex-col gap-2">
+                {location.pathname !== "/" && (
+                  <>
+                    <Link
+                      to="/student/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-2 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold py-3 px-5 rounded-xl transition-all"
+                    >
+                      <User className="w-4 h-4" />
+                      Student Login
+                    </Link>
+                    <Link
+                      to="/faculty/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-3 px-5 rounded-xl transition-all shadow-md shadow-blue-200"
+                    >
+                      <User className="w-4 h-4" />
+                      Faculty Login
+                    </Link>
+                  </>
+                )}
+              </div>
           )}
         </div>
       )}

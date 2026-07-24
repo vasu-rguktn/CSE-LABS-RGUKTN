@@ -21,6 +21,7 @@ import ProtectedStudentRoute from "./components/ProtectedStudentRoute";
 import RoleSelection from "./pages/RoleSelection";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 import AdminRosterView from "./pages/AdminRosterView";
+import AdminAllocationsView from "./pages/AdminAllocationsView";
 const App: React.FC = () => {
   const fetchUserData = async (user: any) => {
     try {
@@ -179,6 +180,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedAdminRoute>
                   <AdminRosterView />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/admin/allocations"
+              element={
+                <ProtectedAdminRoute>
+                  <AdminAllocationsView />
                 </ProtectedAdminRoute>
               }
             />

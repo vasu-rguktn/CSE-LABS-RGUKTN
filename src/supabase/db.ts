@@ -205,6 +205,30 @@ export const upsertSubjectsMaster = async (subjects: SubjectMaster[]) => {
   if (error) throw error;
 };
 
+export const getAllSubjectsMaster = async (): Promise<SubjectMaster[]> => {
+  const { data, error } = await supabase
+    .from('subjects_master')
+    .select('*');
+    
+  if (error) throw error;
+  
+  return (data || []).map(s => ({
+    id: s.id,
+    courseCode: s.course_code,
+    subjectName: s.subject_name,
+    engineeringYear: s.engineering_year,
+    semester: s.semester,
+    branch: s.branch,
+    credits: s.credits,
+    isLab: s.is_lab
+  }));
+};
+
+export const deleteAllSubjectsMaster = async () => {
+  const { error } = await supabase.from('subjects_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) throw error;
+};
+
 export const upsertStudentsMaster = async (students: StudentMaster[]) => {
   // Deduplicate by rollNumber (keep the last occurrence)
   const dedupedStudents = Object.values(
@@ -265,8 +289,7 @@ export const getStudentMasterByEmail = async (email: string): Promise<StudentMas
 export const getStudentSubjects = async (engineeringYear: string, semester: string, branch: string): Promise<SubjectMaster[]> => {
   const { data, error } = await supabase
     .from('subjects_master')
-    .select('*')
-    .ilike('branch', branch);
+    .select('*');
 
   if (error) throw error;
 
@@ -288,12 +311,18 @@ export const getStudentSubjects = async (engineeringYear: string, semester: stri
      return (year || '').toUpperCase();
   };
 
+  const normalizeBranch = (b: string) => {
+    return (b || '').replace(/\s+/g, '').toLowerCase();
+  };
+
   const targetYear = normalizeYear(engineeringYear);
   const targetSem = normalizeSemester(semester);
+  const targetBranch = normalizeBranch(branch);
 
   const filtered = (data || []).filter(s => 
     normalizeYear(s.engineering_year) === targetYear && 
-    normalizeSemester(s.semester) === targetSem
+    normalizeSemester(s.semester) === targetSem &&
+    normalizeBranch(s.branch) === targetBranch
   );
 
   return filtered.map(s => ({
@@ -391,12 +420,28 @@ export interface FacultySubjectSection {
   notes: string | null;
 }
 
+export const deleteAllFacultyMappings = async () => {
+  const { error } = await supabase.from('faculty_subject_section').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) throw error;
+};
+
 export const upsertFacultySubjectSections = async (mappings: FacultySubjectSection[]) => {
-  // Deduplicate by the unique constraint
+  // Deduplicate by combining faculty for the same section
   const dedupedMappings = Object.values(
     mappings.reduce((acc, curr) => {
       const key = `${curr.subjectCode}_${curr.batchYear}_${curr.branch}_${curr.section}`;
-      acc[key] = curr;
+      if (acc[key]) {
+        // Combine faculty names
+        if (curr.facultyName && !acc[key].facultyName?.includes(curr.facultyName)) {
+           acc[key].facultyName = acc[key].facultyName ? `${acc[key].facultyName}, ${curr.facultyName}` : curr.facultyName;
+        }
+        // Combine faculty emails
+        if (curr.facultyEmail && !acc[key].facultyEmail?.includes(curr.facultyEmail)) {
+           acc[key].facultyEmail = acc[key].facultyEmail ? `${acc[key].facultyEmail},${curr.facultyEmail}` : curr.facultyEmail;
+        }
+      } else {
+        acc[key] = { ...curr };
+      }
       return acc;
     }, {} as Record<string, FacultySubjectSection>)
   );
@@ -438,25 +483,88 @@ export const getFacultyForSubjectSection = async (
   const { data, error } = await supabase
     .from('faculty_subject_section')
     .select('*')
-    .eq('subject_code', subjectCode)
-    .eq('batch_year', batchYear)
-    .eq('branch', branch)
-    .eq('section', section)
-    .maybeSingle();
+    .eq('subject_code', subjectCode);
 
   if (error) throw error;
-  if (!data) return null;
+  if (!data || data.length === 0) return null;
+
+  // 1. Exact match (best case)
+  const exact = data.find(
+    (d) =>
+      d.batch_year === batchYear &&
+      d.branch === branch &&
+      d.section === section
+  );
+
+  if (exact) {
+    return {
+      id: exact.id,
+      subjectCode: exact.subject_code,
+      batchYear: exact.batch_year,
+      branch: exact.branch,
+      section: exact.section,
+      facultyName: exact.faculty_name,
+      facultyEmail: exact.faculty_email,
+      coFacultyName: exact.co_faculty_name,
+      notes: exact.notes
+    };
+  }
+
+  // 2. Partial match fallback (for backward compatibility when batch_year/branch are Unknown)
+  // Check if the student's section ends with the stored section (e.g., student "E1AI&ML1" ends with stored "1")
+  const partial = data.find(
+    (d) =>
+      d.batch_year === 'Unknown' &&
+      d.branch === 'Unknown' &&
+      (section.endsWith(d.section) || d.section === section)
+  );
+
+  if (partial) {
+    return {
+      id: partial.id,
+      subjectCode: partial.subject_code,
+      batchYear: partial.batch_year,
+      branch: partial.branch,
+      section: partial.section,
+      facultyName: partial.faculty_name,
+      facultyEmail: partial.faculty_email,
+      coFacultyName: partial.co_faculty_name,
+      notes: partial.notes
+    };
+  }
+
+  return null;
+};
+
+export const getAllFacultiesForSubject = async (
+  subjectCode: string
+): Promise<{ facultyName: string | null, facultyEmail: string | null } | null> => {
+  const { data, error } = await supabase
+    .from('faculty_subject_section')
+    .select('faculty_name, faculty_email')
+    .eq('subject_code', subjectCode);
+
+  if (error) throw error;
+  if (!data || data.length === 0) return null;
+
+  // Aggregate all unique faculty names and emails
+  const names = new Set<string>();
+  const emails = new Set<string>();
+
+  data.forEach(d => {
+    if (d.faculty_name) {
+      d.faculty_name.split(/[,&\n]+/).map((s: string) => s.trim()).filter(Boolean).forEach((n: string) => names.add(n));
+    }
+    if (d.faculty_email) {
+      d.faculty_email.split(/[,&\n]+/).map((s: string) => s.trim()).filter(Boolean).forEach((e: string) => emails.add(e));
+    }
+  });
+
+  if (names.size === 0) return null;
 
   return {
-    id: data.id,
-    subjectCode: data.subject_code,
-    batchYear: data.batch_year,
-    branch: data.branch,
-    section: data.section,
-    facultyName: data.faculty_name,
-    facultyEmail: data.faculty_email,
-    coFacultyName: data.co_faculty_name,
-    notes: data.notes
+    facultyName: Array.from(names).join(', '),
+    facultyEmail: Array.from(emails).join(', ')
   };
 };
 
@@ -464,7 +572,7 @@ export const getSectionsForFacultyEmail = async (email: string): Promise<Faculty
   const { data, error } = await supabase
     .from('faculty_subject_section')
     .select('*')
-    .eq('faculty_email', email.toLowerCase());
+    .ilike('faculty_email', `%${email.toLowerCase()}%`);
 
   if (error) throw error;
   
