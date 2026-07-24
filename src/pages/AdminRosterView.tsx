@@ -6,32 +6,27 @@ const AdminRosterView: React.FC = () => {
   const [students, setStudents] = useState<StudentMaster[]>([]);
   const [loading, setLoading] = useState(false);
   
-  const [availableYears, setAvailableYears] = useState<string[]>([]);
-  const [availableSections, setAvailableSections] = useState<string[]>([]);
-  
-  const [selectedYear, setSelectedYear] = useState("");
-  const [selectedSection, setSelectedSection] = useState("");
+  const availableYears = ["E1", "E2", "E3", "E4"];
+  const [selectedYear, setSelectedYear] = useState("E1");
+  const [selectedSection, setSelectedSection] = useState("E1CSE1");
 
-  // Fetch unique years and sections on mount
+  const [availableSections, setAvailableSections] = useState<string[]>([]);
+
+  // Update available sections when year changes
   useEffect(() => {
-    const fetchMetadata = async () => {
-      const { data, error } = await supabase
-        .from("students_master")
-        .select("engineering_year, section");
-        
-      if (!error && data) {
-        const years = Array.from(new Set(data.map(d => d.engineering_year))).sort();
-        const secs = Array.from(new Set(data.map(d => d.section))).sort();
-        
-        setAvailableYears(years);
-        setAvailableSections(secs);
-        
-        if (years.length > 0) setSelectedYear(years[0]);
-        if (secs.length > 0) setSelectedSection(secs[0]);
-      }
-    };
-    fetchMetadata();
-  }, []);
+    let sections: string[] = [];
+    if (selectedYear === "E1") {
+      sections = ["E1CSE1", "E1CSE2", "E1CSE3", "E1CSE4", "E1CSE5", "E1AI&ML1"];
+    } else if (selectedYear === "E2") {
+      sections = ["E2CSE1", "E2CSE2", "E2CSE3", "E2CSE4", "E2CSE5", "E2AI&ML1"];
+    } else if (selectedYear === "E3") {
+      sections = ["E3CSE1", "E3CSE2", "E3CSE3", "E3CSE4", "E3CSE5", "E3CSE6"];
+    } else if (selectedYear === "E4") {
+      sections = ["E4CSE1", "E4CSE2", "E4CSE3", "E4CSE4", "E4CSE5", "E4CSE6"];
+    }
+    setAvailableSections(sections);
+    setSelectedSection(sections[0]);
+  }, [selectedYear]);
 
   const fetchRoster = async () => {
     if (!selectedYear || !selectedSection) return;
@@ -56,12 +51,16 @@ const AdminRosterView: React.FC = () => {
         emailId: d.email_id
       }));
       setStudents(mapped);
+    } else {
+      setStudents([]);
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchRoster();
+    if (selectedSection) {
+      fetchRoster();
+    }
   }, [selectedYear, selectedSection]);
 
   return (

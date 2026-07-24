@@ -3,14 +3,15 @@ import { useAuthStore } from "../store/authStore";
 import { Navigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
-import { upsertSubjectsMaster, upsertStudentsMaster, upsertFacultySubjectSections } from "../supabase/db";
+import { upsertSubjectsMaster, upsertStudentsMaster, upsertFacultySubjectSections, deleteAllStudentsMaster } from "../supabase/db";
 import type { SubjectMaster, StudentMaster, FacultySubjectSection } from "../supabase/db";
-import { Upload, FileSpreadsheet, AlertTriangle, Database, Users } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertTriangle, Database, Users, Trash2 } from "lucide-react";
 
 const FacultyAdminImport: React.FC = () => {
   const { user } = useAuthStore();
   const [importingBoS, setImportingBoS] = useState(false);
   const [importingStudents, setImportingStudents] = useState(false);
+  const [deletingStudents, setDeletingStudents] = useState(false);
   const [globalSemester, setGlobalSemester] = useState("Sem-1");
   
   // Faculty Mapping States
@@ -163,6 +164,21 @@ const FacultyAdminImport: React.FC = () => {
     } finally {
       setImportingStudents(false);
       if (e.target) e.target.value = "";
+    }
+  };
+
+  const handleDeleteAllStudents = async () => {
+    if (!window.confirm("Are you sure you want to delete ALL students? This action cannot be undone.")) return;
+    
+    setDeletingStudents(true);
+    const toastId = toast.loading("Deleting all students...");
+    try {
+      await deleteAllStudentsMaster();
+      toast.success("Successfully deleted all students.", { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete students.", { id: toastId });
+    } finally {
+      setDeletingStudents(false);
     }
   };
 
@@ -332,12 +348,12 @@ const FacultyAdminImport: React.FC = () => {
               </select>
             </div>
 
-            <div className="relative">
+            <div className="relative mb-3">
               <input 
                 type="file" 
                 accept=".xlsx, .xls, .csv" 
                 onChange={handleStudentFile}
-                disabled={importingStudents}
+                disabled={importingStudents || deletingStudents}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               />
               <div className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${
@@ -347,6 +363,15 @@ const FacultyAdminImport: React.FC = () => {
                 {importingStudents ? "Processing..." : "Upload Student Master Excel"}
               </div>
             </div>
+
+            <button
+              onClick={handleDeleteAllStudents}
+              disabled={deletingStudents || importingStudents}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4" />
+              {deletingStudents ? "Resetting Data..." : "Reset Students Data"}
+            </button>
           </div>
 
           {/* Faculty-Subject-Section Mapping Import Card */}

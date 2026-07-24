@@ -15,10 +15,7 @@ import {
 } from "lucide-react";
 import type { Subject } from "../data/subjects";
 
-const fuse = new Fuse(subjects, {
-  keys: ["name", "shortName", "code"],
-  threshold: 0.4,
-});
+// Global fuse removed
 
 const FacultySelectSubject: React.FC = () => {
   const { user, facultySubjects, setFacultySubjects } = useAuthStore();
@@ -28,12 +25,27 @@ const FacultySelectSubject: React.FC = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [saving, setSaving] = useState(false);
+  
+  const [selectedFilterYear, setSelectedFilterYear] = useState("All");
+  const [selectedFilterSemester, setSelectedFilterSemester] = useState("All");
+  
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const filteredSubjects = subjects.filter(s => {
+    if (selectedFilterYear !== "All" && s.year !== selectedFilterYear) return false;
+    if (selectedFilterSemester !== "All" && s.semester !== selectedFilterSemester) return false;
+    return true;
+  });
+
+  const currentFuse = new Fuse(filteredSubjects, {
+    keys: ["name", "shortName", "code"],
+    threshold: 0.4,
+  });
 
   const searchResults =
     query.trim().length > 0
-      ? fuse.search(query).map((r) => r.item)
-      : subjects;
+      ? currentFuse.search(query).map((r) => r.item)
+      : filteredSubjects;
 
   const handleSelect = (subject: Subject) => {
     setSelectedSubject(subject);
@@ -93,6 +105,37 @@ const FacultySelectSubject: React.FC = () => {
               <strong>One-time selection.</strong> You can only pick one subject
               and cannot change it yourself later.
             </p>
+          </div>
+
+          {/* Filters */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Year</label>
+              <select
+                value={selectedFilterYear}
+                onChange={(e) => setSelectedFilterYear(e.target.value)}
+                className="w-full appearance-none px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 transition-all"
+              >
+                <option value="All">All Years</option>
+                <option value="E1">E1</option>
+                <option value="E2">E2</option>
+                <option value="E3">E3</option>
+                <option value="E4">E4</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Semester</label>
+              <select
+                value={selectedFilterSemester}
+                onChange={(e) => setSelectedFilterSemester(e.target.value)}
+                className="w-full appearance-none px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 transition-all"
+              >
+                <option value="All">All Semesters</option>
+                <option value="S1">S1</option>
+                <option value="S2">S2</option>
+                <option value="Summer">Summer</option>
+              </select>
+            </div>
           </div>
 
           {/* Search input */}

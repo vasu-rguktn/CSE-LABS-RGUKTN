@@ -231,6 +231,15 @@ export const upsertStudentsMaster = async (students: StudentMaster[]) => {
   if (error) throw error;
 };
 
+export const deleteAllStudentsMaster = async (): Promise<void> => {
+  const { error } = await supabase
+    .from('students_master')
+    .delete()
+    .neq('roll_number', '00000000'); // Dummy condition to delete all valid records
+
+  if (error) throw error;
+};
+
 export const getStudentMasterByEmail = async (email: string): Promise<StudentMaster | null> => {
   const { data, error } = await supabase
     .from('students_master')
